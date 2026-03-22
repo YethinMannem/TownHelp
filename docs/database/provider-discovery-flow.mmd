@@ -1,0 +1,21 @@
+flowchart TD
+    %% ================================================================
+    %% TownHelp — Provider Discovery Query Flow
+    %% The most performance-critical query path in the application
+    %% ================================================================
+
+    A[User searches: maid Madhapur] --> B[service_categories]
+    B -->|slug = 'maid'| C[provider_services]
+    C -->|JOIN category_id, is_active = true| D{Parallel filters}
+
+    D --> E[service_areas]
+    D --> F[provider_profiles]
+
+    E -->|area_name = 'Madhapur'| G[Matched providers in area]
+    F -->|is_available = true, is_verified = true, deleted_at IS NULL| H[Active verified providers]
+
+    G --> I[Intersection: providers matching both filters]
+    H --> I
+
+    I --> J[Sort by rating_avg DESC, completed_bookings DESC]
+    J --> K[Return paginated results]

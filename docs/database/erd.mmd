@@ -1,0 +1,272 @@
+erDiagram
+    %% ================================================================
+    %% TownHelp Database Schema — Entity Relationship Diagram
+    %% Version: 1.0.0 | Date: 2026-03-22
+    %% 16 Tables | 14 Enums | 13 Indexes
+    %% ================================================================
+
+    %% ======================== RELATIONSHIPS ========================
+
+    users ||--o| provider_profiles : "extends to"
+    users ||--o{ bookings : "requests"
+    users ||--o{ messages : "sends"
+    users ||--o{ notifications : "receives"
+    users ||--o{ reviews : "writes"
+    users ||--o{ reports : "files"
+    users ||--o{ favorites : "saves"
+
+    provider_profiles ||--o{ bookings : "fulfills"
+    provider_profiles ||--o{ provider_services : "offers"
+    provider_profiles ||--o{ service_areas : "covers"
+    provider_profiles ||--o{ provider_photos : "showcases"
+    provider_profiles ||--o{ favorites : "saved by"
+
+    service_categories ||--o{ provider_services : "categorizes"
+    service_categories ||--o{ bookings : "booked for"
+
+    bookings ||--|| conversations : "opens"
+    bookings ||--o| reviews : "reviewed via"
+    bookings ||--o{ booking_status_logs : "tracked by"
+    bookings ||--o| payments : "paid via"
+    bookings ||--o| disputes : "disputed via"
+
+    conversations ||--o{ messages : "contains"
+
+    %% ======================== CORE TABLES ========================
+
+    users {
+        uuid id PK
+        varchar(60) phone UK
+        varchar(60) whatsapp_number
+        varchar(120) email UK
+        varchar(100) full_name
+        text avatar_url
+        enum auth_provider "PHONE | GOOGLE"
+        enum preferred_language "ENGLISH | TELUGU | HINDI"
+        int failed_login_attempts "default 0"
+        timestamp locked_until
+        jsonb metadata
+        boolean is_active "default true"
+        boolean is_phone_verified "default false"
+        boolean is_email_verified "default false"
+        timestamp last_login_at
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at "soft delete"
+    }
+
+    provider_profiles {
+        uuid id PK
+        uuid user_id FK_UK "unique → users.id"
+        varchar(100) display_name
+        text bio
+        decimal base_rate "default 0"
+        enum rate_type "HOURLY | PER_VISIT | FIXED | PER_KG"
+        decimal rating_avg "default 0"
+        int rating_sum "default 0"
+        int rating_count "default 0"
+        int completed_bookings "default 0"
+        boolean is_verified "default false"
+        boolean is_available "default true"
+        time available_from
+        time available_to
+        boolean is_background_checked "default false"
+        jsonb documents "Aadhaar, ID uploads"
+        float latitude
+        float longitude
+        int max_travel_radius_km "default 5"
+        timestamp verified_at
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at "soft delete"
+    }
+
+    service_categories {
+        uuid id PK
+        varchar(50) name UK
+        varchar(50) slug UK
+        text description
+        varchar(30) icon_name
+        boolean is_active "default true"
+        int sort_order "default 0"
+        timestamp created_at
+    }
+
+    provider_services {
+        uuid id PK
+        uuid provider_id FK "→ provider_profiles.id"
+        uuid category_id FK "→ service_categories.id"
+        decimal custom_rate
+        enum rate_type "HOURLY | PER_VISIT | FIXED | PER_KG"
+        text description
+        int experience_years
+        boolean is_active "default true"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    service_areas {
+        uuid id PK
+        uuid provider_id FK "→ provider_profiles.id"
+        varchar(100) area_name
+        varchar(50) city "default Hyderabad"
+        varchar(50) state "default Telangana"
+        varchar(10) pincode
+        float latitude
+        float longitude
+        float radius_km "default 3"
+        boolean is_primary "default false"
+        timestamp created_at
+    }
+
+    provider_photos {
+        uuid id PK
+        uuid provider_id FK "→ provider_profiles.id"
+        text url
+        varchar(200) caption
+        int sort_order "default 0"
+        timestamp created_at
+    }
+
+    %% ======================== OPERATIONS ========================
+
+    bookings {
+        uuid id PK
+        varchar(20) booking_number UK "TH-YYMMDD-NNN"
+        uuid requester_id FK "→ users.id"
+        uuid provider_id FK "→ provider_profiles.id"
+        uuid category_id FK "→ service_categories.id"
+        enum status "PENDING | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED | DISPUTED"
+        timestamp scheduled_start
+        timestamp scheduled_end
+        varchar(500) service_address
+        varchar(10) service_pincode
+        float service_lat
+        float service_lng
+        text requester_notes
+        text provider_notes
+        decimal quoted_rate
+        decimal final_amount
+        timestamp confirmed_at
+        timestamp started_at
+        timestamp completed_at
+        timestamp cancelled_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    booking_status_logs {
+        uuid id PK
+        uuid booking_id FK "→ bookings.id"
+        enum from_status "BookingStatus"
+        enum to_status "BookingStatus"
+        uuid changed_by FK "→ users.id"
+        text notes
+        timestamp created_at
+    }
+
+    conversations {
+        uuid id PK
+        uuid booking_id FK_UK "unique → bookings.id"
+        uuid requester_id FK "→ users.id"
+        uuid provider_id FK "→ provider_profiles.id"
+        timestamp last_message_at
+        timestamp created_at
+    }
+
+    messages {
+        uuid id PK
+        uuid conversation_id FK "→ conversations.id"
+        uuid sender_id FK "→ users.id"
+        enum message_type "TEXT | IMAGE | LOCATION | SYSTEM"
+        text content
+        jsonb metadata "image URLs, coords, etc"
+        boolean is_read "default false"
+        boolean is_flagged "default false"
+        text flagged_reason
+        timestamp read_at
+        timestamp created_at
+    }
+
+    %% ======================== TRUST & SAFETY ========================
+
+    reviews {
+        uuid id PK
+        uuid booking_id FK_UK "unique → bookings.id"
+        uuid reviewer_id FK "→ users.id"
+        uuid reviewee_id FK "→ users.id"
+        int rating "CHECK 1-5"
+        text comment
+        boolean is_visible "default true"
+        text admin_notes
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    disputes {
+        uuid id PK
+        uuid booking_id FK_UK "unique → bookings.id"
+        uuid raised_by FK "→ users.id"
+        enum reason "NO_SHOW | POOR_QUALITY | OVERCHARGED | INAPPROPRIATE | PROPERTY_DAMAGE | OTHER"
+        text description
+        enum status "OPEN | UNDER_REVIEW | RESOLVED | DISMISSED"
+        text resolution_notes
+        uuid resolved_by FK "→ users.id"
+        timestamp resolved_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    reports {
+        uuid id PK
+        uuid reporter_id FK "→ users.id"
+        uuid reported_user_id FK "→ users.id"
+        uuid booking_id FK "→ bookings.id (optional)"
+        enum reason "HARASSMENT | FRAUD | FAKE_PROFILE | INAPPROPRIATE | SPAM | OTHER"
+        text description
+        enum status "OPEN | REVIEWING | ACTION_TAKEN | DISMISSED"
+        text admin_notes
+        uuid resolved_by
+        timestamp resolved_at
+        timestamp created_at
+    }
+
+    %% ======================== COMMERCE ========================
+
+    payments {
+        uuid id PK
+        uuid booking_id FK_UK "unique → bookings.id"
+        varchar idempotency_key UK "prevents double charge"
+        decimal amount "CHECK > 0"
+        enum currency "INR"
+        enum payment_method "CASH | UPI | CARD | WALLET"
+        enum status "PENDING | COMPLETED | FAILED | REFUNDED"
+        varchar upi_id
+        varchar external_txn_id
+        jsonb gateway_response "full Razorpay/UPI response"
+        timestamp paid_at
+        timestamp refunded_at
+        timestamp created_at
+    }
+
+    %% ======================== ENGAGEMENT ========================
+
+    notifications {
+        uuid id PK
+        uuid user_id FK "→ users.id"
+        enum channel "IN_APP | SMS | WHATSAPP | PUSH"
+        enum type "NotificationType"
+        varchar(200) title
+        text body
+        jsonb data "deep link context"
+        boolean is_read "default false"
+        timestamp read_at
+        timestamp created_at
+    }
+
+    favorites {
+        uuid id PK
+        uuid user_id FK "→ users.id"
+        uuid provider_id FK "→ provider_profiles.id"
+        timestamp created_at
+    }

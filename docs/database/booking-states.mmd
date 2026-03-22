@@ -1,0 +1,44 @@
+stateDiagram-v2
+    %% ================================================================
+    %% TownHelp — Booking State Machine
+    %% Every transition is logged in booking_status_logs
+    %% ================================================================
+
+    [*] --> PENDING : Requester creates booking
+
+    PENDING --> CONFIRMED : Provider accepts
+    PENDING --> CANCELLED : Requester or Provider cancels
+
+    CONFIRMED --> IN_PROGRESS : Provider starts work
+    CONFIRMED --> CANCELLED : Either party cancels
+
+    IN_PROGRESS --> COMPLETED : Provider marks done
+    IN_PROGRESS --> DISPUTED : Either party raises dispute
+
+    COMPLETED --> DISPUTED : Post-completion dispute
+    COMPLETED --> [*]
+
+    DISPUTED --> COMPLETED : Dispute resolved in favor
+    DISPUTED --> CANCELLED : Dispute resolved with refund
+
+    CANCELLED --> [*]
+
+    note right of PENDING
+        Notification sent to provider.
+        Auto-cancel after 24h if no response.
+    end note
+
+    note right of CONFIRMED
+        Conversation created.
+        Both parties can chat.
+    end note
+
+    note right of COMPLETED
+        Review and Payment created.
+        Provider rating_sum updated.
+    end note
+
+    note right of DISPUTED
+        Dispute record created.
+        Admin review queue notified.
+    end note
