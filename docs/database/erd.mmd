@@ -1,11 +1,7 @@
 erDiagram
-    %% ================================================================
-    %% TownHelp Database Schema — Entity Relationship Diagram
-    %% Version: 1.0.0 | Date: 2026-03-22
-    %% 16 Tables | 14 Enums | 13 Indexes
-    %% ================================================================
-
-    %% ======================== RELATIONSHIPS ========================
+    %% TownHelp Database Schema - Entity Relationship Diagram
+    %% Version 1.0.0 - 2026-03-22
+    %% 16 Tables - 14 Enums - 13 Indexes
 
     users ||--o| provider_profiles : "extends to"
     users ||--o{ bookings : "requests"
@@ -32,115 +28,111 @@ erDiagram
 
     conversations ||--o{ messages : "contains"
 
-    %% ======================== CORE TABLES ========================
-
     users {
         uuid id PK
-        varchar(60) phone UK
-        varchar(60) whatsapp_number
-        varchar(120) email UK
-        varchar(100) full_name
+        varchar phone UK
+        varchar whatsapp_number
+        varchar email UK
+        varchar full_name
         text avatar_url
-        enum auth_provider "PHONE | GOOGLE"
-        enum preferred_language "ENGLISH | TELUGU | HINDI"
-        int failed_login_attempts "default 0"
+        enum auth_provider
+        enum preferred_language
+        int failed_login_attempts
         timestamp locked_until
         jsonb metadata
-        boolean is_active "default true"
-        boolean is_phone_verified "default false"
-        boolean is_email_verified "default false"
+        boolean is_active
+        boolean is_phone_verified
+        boolean is_email_verified
         timestamp last_login_at
         timestamp created_at
         timestamp updated_at
-        timestamp deleted_at "soft delete"
+        timestamp deleted_at
     }
 
     provider_profiles {
         uuid id PK
-        uuid user_id FK_UK "unique → users.id"
-        varchar(100) display_name
+        uuid user_id FK
+        varchar display_name
         text bio
-        decimal base_rate "default 0"
-        enum rate_type "HOURLY | PER_VISIT | FIXED | PER_KG"
-        decimal rating_avg "default 0"
-        int rating_sum "default 0"
-        int rating_count "default 0"
-        int completed_bookings "default 0"
-        boolean is_verified "default false"
-        boolean is_available "default true"
+        decimal base_rate
+        enum rate_type
+        decimal rating_avg
+        int rating_sum
+        int rating_count
+        int completed_bookings
+        boolean is_verified
+        boolean is_available
         time available_from
         time available_to
-        boolean is_background_checked "default false"
-        jsonb documents "Aadhaar, ID uploads"
+        boolean is_background_checked
+        jsonb documents
         float latitude
         float longitude
-        int max_travel_radius_km "default 5"
+        int max_travel_radius_km
         timestamp verified_at
         timestamp created_at
         timestamp updated_at
-        timestamp deleted_at "soft delete"
+        timestamp deleted_at
     }
 
     service_categories {
         uuid id PK
-        varchar(50) name UK
-        varchar(50) slug UK
+        varchar name UK
+        varchar slug UK
         text description
-        varchar(30) icon_name
-        boolean is_active "default true"
-        int sort_order "default 0"
+        varchar icon_name
+        boolean is_active
+        int sort_order
         timestamp created_at
     }
 
     provider_services {
         uuid id PK
-        uuid provider_id FK "→ provider_profiles.id"
-        uuid category_id FK "→ service_categories.id"
+        uuid provider_id FK
+        uuid category_id FK
         decimal custom_rate
-        enum rate_type "HOURLY | PER_VISIT | FIXED | PER_KG"
+        enum rate_type
         text description
         int experience_years
-        boolean is_active "default true"
+        boolean is_active
         timestamp created_at
         timestamp updated_at
     }
 
     service_areas {
         uuid id PK
-        uuid provider_id FK "→ provider_profiles.id"
-        varchar(100) area_name
-        varchar(50) city "default Hyderabad"
-        varchar(50) state "default Telangana"
-        varchar(10) pincode
+        uuid provider_id FK
+        varchar area_name
+        varchar city
+        varchar state
+        varchar pincode
         float latitude
         float longitude
-        float radius_km "default 3"
-        boolean is_primary "default false"
+        float radius_km
+        boolean is_primary
         timestamp created_at
     }
 
     provider_photos {
         uuid id PK
-        uuid provider_id FK "→ provider_profiles.id"
+        uuid provider_id FK
         text url
-        varchar(200) caption
-        int sort_order "default 0"
+        varchar caption
+        int sort_order
         timestamp created_at
     }
 
-    %% ======================== OPERATIONS ========================
-
     bookings {
         uuid id PK
-        varchar(20) booking_number UK "TH-YYMMDD-NNN"
-        uuid requester_id FK "→ users.id"
-        uuid provider_id FK "→ provider_profiles.id"
-        uuid category_id FK "→ service_categories.id"
-        enum status "PENDING | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED | DISPUTED"
+        varchar booking_number UK
+        uuid requester_id FK
+        uuid provider_id FK
+        uuid category_id FK
+        enum status
         timestamp scheduled_start
         timestamp scheduled_end
-        varchar(500) service_address
-        varchar(10) service_pincode
+        varchar service_address
+        varchar service_pincode
         float service_lat
         float service_lng
         text requester_notes
@@ -157,47 +149,45 @@ erDiagram
 
     booking_status_logs {
         uuid id PK
-        uuid booking_id FK "→ bookings.id"
-        enum from_status "BookingStatus"
-        enum to_status "BookingStatus"
-        uuid changed_by FK "→ users.id"
+        uuid booking_id FK
+        enum from_status
+        enum to_status
+        uuid changed_by FK
         text notes
         timestamp created_at
     }
 
     conversations {
         uuid id PK
-        uuid booking_id FK_UK "unique → bookings.id"
-        uuid requester_id FK "→ users.id"
-        uuid provider_id FK "→ provider_profiles.id"
+        uuid booking_id FK
+        uuid requester_id FK
+        uuid provider_id FK
         timestamp last_message_at
         timestamp created_at
     }
 
     messages {
         uuid id PK
-        uuid conversation_id FK "→ conversations.id"
-        uuid sender_id FK "→ users.id"
-        enum message_type "TEXT | IMAGE | LOCATION | SYSTEM"
+        uuid conversation_id FK
+        uuid sender_id FK
+        enum message_type
         text content
-        jsonb metadata "image URLs, coords, etc"
-        boolean is_read "default false"
-        boolean is_flagged "default false"
+        jsonb metadata
+        boolean is_read
+        boolean is_flagged
         text flagged_reason
         timestamp read_at
         timestamp created_at
     }
 
-    %% ======================== TRUST & SAFETY ========================
-
     reviews {
         uuid id PK
-        uuid booking_id FK_UK "unique → bookings.id"
-        uuid reviewer_id FK "→ users.id"
-        uuid reviewee_id FK "→ users.id"
-        int rating "CHECK 1-5"
+        uuid booking_id FK
+        uuid reviewer_id FK
+        uuid reviewee_id FK
+        int rating
         text comment
-        boolean is_visible "default true"
+        boolean is_visible
         text admin_notes
         timestamp created_at
         timestamp updated_at
@@ -205,13 +195,13 @@ erDiagram
 
     disputes {
         uuid id PK
-        uuid booking_id FK_UK "unique → bookings.id"
-        uuid raised_by FK "→ users.id"
-        enum reason "NO_SHOW | POOR_QUALITY | OVERCHARGED | INAPPROPRIATE | PROPERTY_DAMAGE | OTHER"
+        uuid booking_id FK
+        uuid raised_by FK
+        enum reason
         text description
-        enum status "OPEN | UNDER_REVIEW | RESOLVED | DISMISSED"
+        enum status
         text resolution_notes
-        uuid resolved_by FK "→ users.id"
+        uuid resolved_by FK
         timestamp resolved_at
         timestamp created_at
         timestamp updated_at
@@ -219,54 +209,50 @@ erDiagram
 
     reports {
         uuid id PK
-        uuid reporter_id FK "→ users.id"
-        uuid reported_user_id FK "→ users.id"
-        uuid booking_id FK "→ bookings.id (optional)"
-        enum reason "HARASSMENT | FRAUD | FAKE_PROFILE | INAPPROPRIATE | SPAM | OTHER"
+        uuid reporter_id FK
+        uuid reported_user_id FK
+        uuid booking_id FK
+        enum reason
         text description
-        enum status "OPEN | REVIEWING | ACTION_TAKEN | DISMISSED"
+        enum status
         text admin_notes
         uuid resolved_by
         timestamp resolved_at
         timestamp created_at
     }
 
-    %% ======================== COMMERCE ========================
-
     payments {
         uuid id PK
-        uuid booking_id FK_UK "unique → bookings.id"
-        varchar idempotency_key UK "prevents double charge"
-        decimal amount "CHECK > 0"
-        enum currency "INR"
-        enum payment_method "CASH | UPI | CARD | WALLET"
-        enum status "PENDING | COMPLETED | FAILED | REFUNDED"
+        uuid booking_id FK
+        varchar idempotency_key UK
+        decimal amount
+        enum currency
+        enum payment_method
+        enum status
         varchar upi_id
         varchar external_txn_id
-        jsonb gateway_response "full Razorpay/UPI response"
+        jsonb gateway_response
         timestamp paid_at
         timestamp refunded_at
         timestamp created_at
     }
 
-    %% ======================== ENGAGEMENT ========================
-
     notifications {
         uuid id PK
-        uuid user_id FK "→ users.id"
-        enum channel "IN_APP | SMS | WHATSAPP | PUSH"
-        enum type "NotificationType"
-        varchar(200) title
+        uuid user_id FK
+        enum channel
+        enum type
+        varchar title
         text body
-        jsonb data "deep link context"
-        boolean is_read "default false"
+        jsonb data
+        boolean is_read
         timestamp read_at
         timestamp created_at
     }
 
     favorites {
         uuid id PK
-        uuid user_id FK "→ users.id"
-        uuid provider_id FK "→ provider_profiles.id"
+        uuid user_id FK
+        uuid provider_id FK
         timestamp created_at
     }

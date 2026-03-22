@@ -1,6 +1,6 @@
 # TownHelp database schema
 
-> Version 1.0.0 | Last updated: 2026-03-22  
+> Version 1.0.0 | Last updated: 2026-03-22
 > 16 tables | 14 enums | 13 indexes | 10 check constraints
 
 ## Entity relationship diagram
@@ -44,7 +44,7 @@ erDiagram
 
     provider_profiles {
         uuid id PK
-        uuid user_id FK_UK
+        uuid user_id FK
         varchar display_name
         decimal base_rate
         decimal rating_avg
@@ -72,7 +72,7 @@ erDiagram
 
     conversations {
         uuid id PK
-        uuid booking_id FK_UK
+        uuid booking_id FK
         timestamp last_message_at
     }
 
@@ -86,13 +86,13 @@ erDiagram
 
     reviews {
         uuid id PK
-        uuid booking_id FK_UK
+        uuid booking_id FK
         int rating
     }
 
     payments {
         uuid id PK
-        uuid booking_id FK_UK
+        uuid booking_id FK
         decimal amount
         enum payment_method
     }
@@ -216,6 +216,10 @@ erDiagram
 | `provider_services` | (provider_id, category_id) | One listing per category per provider |
 | `favorites` | (user_id, provider_id) | No duplicate favorites |
 | `reviews` | booking_id (single column unique) | One review per booking |
+| `provider_profiles` | user_id (single column unique) | One profile per user |
+| `conversations` | booking_id (single column unique) | One conversation per booking |
+| `payments` | booking_id (single column unique) | One payment per booking |
+| `disputes` | booking_id (single column unique) | One dispute per booking |
 
 ## Seed data
 
