@@ -20,6 +20,7 @@ datasource db {
 enum AuthProvider {
   PHONE
   GOOGLE
+  EMAIL
 }
 
 enum PreferredLanguage {
