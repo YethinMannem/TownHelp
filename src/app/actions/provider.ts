@@ -1,9 +1,10 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 
-export async function createProviderProfile(formData: FormData) {
+export async function createProviderProfile(formData: FormData): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -11,22 +12,19 @@ export async function createProviderProfile(formData: FormData) {
     redirect('/login')
   }
 
-  const { data: publicUser } = await supabase
-    .from('users')
-    .select('id')
-    .eq('id', user.id)
-    .single()
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id, deletedAt: null },
+    select: { id: true },
+  })
 
-  if (!publicUser) {
+  if (!dbUser) {
     throw new Error('User profile not found. Please sign out and sign in again.')
   }
 
-  const { data: existingProfile } = await supabase
-    .from('provider_profiles')
-    .select('id')
-    .eq('user_id', publicUser.id)
-    .is('deleted_at', null)
-    .single()
+  const existingProfile = await prisma.providerProfile.findUnique({
+    where: { userId: dbUser.id, deletedAt: null },
+    select: { id: true },
+  })
 
   if (existingProfile) {
     redirect('/provider/dashboard')
@@ -41,42 +39,41 @@ export async function createProviderProfile(formData: FormData) {
     throw new Error('Display name and base rate are required.')
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('provider_profiles')
-    .insert({
-      user_id: publicUser.id,
-      display_name: displayName.trim(),
-      base_rate: baseRate,
-      bio: bio?.trim() || null,
-      is_available: true,
-      is_verified: false,
-      rating_avg: 0,
-      rating_count: 0,
-      rating_sum: 0,
-      completed_bookings: 0,
-      updated_at: new Date().toISOString(),
+  // Transactional: profile + service area succeed or fail together
+  await prisma.$transaction(async (tx) => {
+    const profile = await tx.providerProfile.create({
+      data: {
+        userId: dbUser.id,
+        displayName: displayName.trim(),
+        baseRate,
+        bio: bio?.trim() || null,
+        isAvailable: true,
+        isVerified: false,
+        ratingAvg: 0,
+        ratingCount: 0,
+        ratingSum: 0,
+        completedBookings: 0,
+      },
+      select: { id: true },
     })
-    .select('id')
-    .single()
 
-  if (profileError) {
-    throw new Error(`Failed to create profile: ${profileError.message}`)
-  }
-
-  if (areaName?.trim()) {
-    await supabase.from('service_areas').insert({
-      provider_id: profile.id,
-      area_name: areaName.trim(),
-      city: 'Hyderabad',
-      state: 'Telangana',
-      is_primary: true,
-    })
-  }
+    if (areaName?.trim()) {
+      await tx.serviceArea.create({
+        data: {
+          providerId: profile.id,
+          areaName: areaName.trim(),
+          city: 'Hyderabad',
+          state: 'Telangana',
+          isPrimary: true,
+        },
+      })
+    }
+  })
 
   redirect('/provider/add-service')
 }
 
-export async function addProviderService(formData: FormData) {
+export async function addProviderService(formData: FormData): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -84,22 +81,19 @@ export async function addProviderService(formData: FormData) {
     redirect('/login')
   }
 
-  const { data: publicUser } = await supabase
-    .from('users')
-    .select('id')
-    .eq('id', user.id)
-    .single()
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id, deletedAt: null },
+    select: { id: true },
+  })
 
-  if (!publicUser) {
+  if (!dbUser) {
     throw new Error('User not found.')
   }
 
-  const { data: profile } = await supabase
-    .from('provider_profiles')
-    .select('id')
-    .eq('user_id', publicUser.id)
-    .is('deleted_at', null)
-    .single()
+  const profile = await prisma.providerProfile.findUnique({
+    where: { userId: dbUser.id, deletedAt: null },
+    select: { id: true },
+  })
 
   if (!profile) {
     redirect('/provider/register')
@@ -114,21 +108,31 @@ export async function addProviderService(formData: FormData) {
     throw new Error('Please select a service category.')
   }
 
-  const { error } = await supabase.from('provider_services').insert({
-    provider_id: profile.id,
-    category_id: categoryId,
-    custom_rate: customRate || null,
-    rate_type: rateType || 'HOURLY',
-    description: description?.trim() || null,
-    is_active: true,
-    updated_at: new Date().toISOString(),
-  })
+  const validRateTypes = ['HOURLY', 'PER_VISIT', 'FIXED', 'PER_KG'] as const
+  const resolvedRateType = validRateTypes.includes(rateType as typeof validRateTypes[number])
+    ? (rateType as typeof validRateTypes[number])
+    : 'HOURLY'
 
-  if (error) {
-    if (error.code === '23505') {
+  try {
+    await prisma.providerService.create({
+      data: {
+        providerId: profile.id,
+        categoryId,
+        customRate: isNaN(customRate) ? null : customRate,
+        rateType: resolvedRateType,
+        description: description?.trim() || null,
+        isActive: true,
+      },
+    })
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error as { code: string }).code === 'P2002'
+    ) {
       throw new Error('You already offer this service. Go to your dashboard to edit it.')
     }
-    throw new Error(`Failed to add service: ${error.message}`)
+    throw new Error('Failed to add service. Please try again.')
   }
 
   redirect('/provider/dashboard')

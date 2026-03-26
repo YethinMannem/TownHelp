@@ -2,17 +2,10 @@
 
 import { useState } from 'react'
 import { addProviderService } from '@/app/actions/provider'
+import { CATEGORY_ICONS } from '@/lib/constants'
+import type { ServiceCategoryItem } from '@/types'
 
-const CATEGORY_ICONS: Record<string, string> = {
-  'maid-cleaning': '🧹',
-  'cook-tiffin': '👨‍🍳',
-  'electrician-plumber': '🔧',
-  'dhobi-laundry': '👕',
-  'tutoring': '📚',
-  'pickup-drop': '🚗',
-}
-
-export default function AddServiceForm({ categories }: { categories: any[] }) {
+export default function AddServiceForm({ categories }: { categories: ServiceCategoryItem[] }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('')
@@ -22,8 +15,8 @@ export default function AddServiceForm({ categories }: { categories: any[] }) {
     setError('')
     try {
       await addProviderService(formData)
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
       setLoading(false)
     }
   }
@@ -41,7 +34,7 @@ export default function AddServiceForm({ categories }: { categories: any[] }) {
           Service Category *
         </label>
         <div className="grid grid-cols-2 gap-2">
-          {categories.map((cat: any) => (
+          {categories.map((cat) => (
             <label
               key={cat.id}
               className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer transition-colors ${
@@ -88,8 +81,9 @@ export default function AddServiceForm({ categories }: { categories: any[] }) {
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
         >
           <option value="HOURLY">Per Hour</option>
+          <option value="PER_VISIT">Per Visit</option>
           <option value="FIXED">Fixed Price</option>
-          <option value="DAILY">Per Day</option>
+          <option value="PER_KG">Per Kg</option>
         </select>
       </div>
 

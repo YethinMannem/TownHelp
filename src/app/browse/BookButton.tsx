@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createBooking } from '@/app/actions/booking'
+import type { ProviderServiceItem } from '@/types'
 
 export default function BookButton({
   providerId,
@@ -11,21 +12,21 @@ export default function BookButton({
 }: {
   providerId: string
   providerName: string
-  services: any[]
+  services: ProviderServiceItem[]
   baseRate: number
 }) {
   const [showForm, setShowForm] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [selectedService, setSelectedService] = useState(services[0] || null)
+  const [selectedService, setSelectedService] = useState<ProviderServiceItem | null>(services[0] || null)
 
   async function handleSubmit(formData: FormData) {
     setLoading(true)
     setError('')
     try {
       await createBooking(formData)
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
       setLoading(false)
     }
   }
@@ -56,7 +57,7 @@ export default function BookButton({
         <input
           type="hidden"
           name="quotedRate"
-          value={selectedService?.custom_rate || baseRate}
+          value={selectedService?.customRate || baseRate}
         />
 
         {services.length > 1 ? (
@@ -67,14 +68,14 @@ export default function BookButton({
             <select
               name="categoryId"
               onChange={(e) => {
-                const s = services.find((s: any) => s.category?.id === e.target.value)
-                setSelectedService(s)
+                const found = services.find((s) => s.category?.id === e.target.value)
+                setSelectedService(found || null)
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
             >
-              {services.map((s: any) => (
+              {services.map((s) => (
                 <option key={s.category?.id} value={s.category?.id}>
-                  {s.category?.name} — ₹{Number(s.custom_rate || baseRate)}/{s.rate_type?.toLowerCase() || 'hr'}
+                  {s.category?.name} — ₹{s.customRate || baseRate}/{s.rateType?.toLowerCase() || 'hr'}
                 </option>
               ))}
             </select>
@@ -115,7 +116,7 @@ export default function BookButton({
             disabled={loading}
             className="flex-1 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300 text-sm"
           >
-            {loading ? 'Booking...' : `Confirm Booking · ₹${Number(selectedService?.custom_rate || baseRate)}`}
+            {loading ? 'Booking...' : `Confirm Booking · ₹${selectedService?.customRate || baseRate}`}
           </button>
           <button
             type="button"

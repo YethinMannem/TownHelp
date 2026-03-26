@@ -13,8 +13,8 @@ export default function RegisterProviderPage() {
     setError('')
     try {
       await createProviderProfile(formData)
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
       setLoading(false)
     }
   }

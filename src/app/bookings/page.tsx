@@ -2,14 +2,15 @@ import { getMyBookings } from '@/app/actions/booking'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import type { BookingAsRequester, BookingAsProvider } from '@/types'
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
-  ACCEPTED: 'bg-blue-100 text-blue-800',
+  CONFIRMED: 'bg-blue-100 text-blue-800',
   IN_PROGRESS: 'bg-purple-100 text-purple-800',
   COMPLETED: 'bg-green-100 text-green-800',
   CANCELLED: 'bg-red-100 text-red-800',
-  REJECTED: 'bg-gray-100 text-gray-800',
+  DISPUTED: 'bg-orange-100 text-orange-800',
 }
 
 export default async function BookingsPage() {
@@ -55,7 +56,7 @@ export default async function BookingsPage() {
                   Services I Booked ({asRequester.length})
                 </h2>
                 <div className="space-y-3">
-                  {asRequester.map((booking: any) => (
+                  {asRequester.map((booking: BookingAsRequester) => (
                     <div
                       key={booking.id}
                       className="bg-white rounded-lg border border-gray-200 p-4"
@@ -66,7 +67,7 @@ export default async function BookingsPage() {
                             {booking.category?.name || 'Service'}
                           </p>
                           <p className="text-sm text-gray-600">
-                            Provider: {booking.provider?.display_name || 'N/A'}
+                            Provider: {booking.provider?.displayName || 'N/A'}
                           </p>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${
@@ -76,15 +77,15 @@ export default async function BookingsPage() {
                         </span>
                       </div>
                       <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
-                        <span>#{booking.booking_number}</span>
-                        {booking.quoted_rate && <span>₹{Number(booking.quoted_rate)}</span>}
-                        <span>{new Date(booking.created_at).toLocaleDateString('en-IN')}</span>
+                        <span>#{booking.bookingNumber}</span>
+                        {booking.quotedRate && <span>₹{booking.quotedRate}</span>}
+                        <span>{new Date(booking.createdAt).toLocaleDateString('en-IN')}</span>
                       </div>
-                      {booking.service_address && (
-                        <p className="mt-1 text-xs text-gray-500">📍 {booking.service_address}</p>
+                      {booking.serviceAddress && (
+                        <p className="mt-1 text-xs text-gray-500">📍 {booking.serviceAddress}</p>
                       )}
-                      {booking.requester_notes && (
-                        <p className="mt-1 text-xs text-gray-500 italic">"{booking.requester_notes}"</p>
+                      {booking.requesterNotes && (
+                        <p className="mt-1 text-xs text-gray-500 italic">&quot;{booking.requesterNotes}&quot;</p>
                       )}
                     </div>
                   ))}
@@ -98,7 +99,7 @@ export default async function BookingsPage() {
                   Bookings I Received ({asProvider.length})
                 </h2>
                 <div className="space-y-3">
-                  {asProvider.map((booking: any) => (
+                  {asProvider.map((booking: BookingAsProvider) => (
                     <div
                       key={booking.id}
                       className="bg-white rounded-lg border border-gray-200 p-4"
@@ -109,7 +110,7 @@ export default async function BookingsPage() {
                             {booking.category?.name || 'Service'}
                           </p>
                           <p className="text-sm text-gray-600">
-                            From: {booking.requester?.full_name || 'Customer'}
+                            From: {booking.requester?.fullName || 'Customer'}
                           </p>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${
@@ -119,12 +120,12 @@ export default async function BookingsPage() {
                         </span>
                       </div>
                       <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
-                        <span>#{booking.booking_number}</span>
-                        {booking.quoted_rate && <span>₹{Number(booking.quoted_rate)}</span>}
-                        <span>{new Date(booking.created_at).toLocaleDateString('en-IN')}</span>
+                        <span>#{booking.bookingNumber}</span>
+                        {booking.quotedRate && <span>₹{booking.quotedRate}</span>}
+                        <span>{new Date(booking.createdAt).toLocaleDateString('en-IN')}</span>
                       </div>
-                      {booking.service_address && (
-                        <p className="mt-1 text-xs text-gray-500">📍 {booking.service_address}</p>
+                      {booking.serviceAddress && (
+                        <p className="mt-1 text-xs text-gray-500">📍 {booking.serviceAddress}</p>
                       )}
                     </div>
                   ))}

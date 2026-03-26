@@ -2,6 +2,7 @@ import { getMyProviderProfile } from '@/app/actions/booking'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import type { ProviderServiceItem, ServiceAreaItem } from '@/types'
 
 export default async function ProviderDashboard() {
   const supabase = await createClient()
@@ -27,28 +28,28 @@ export default async function ProviderDashboard() {
         <div className="mt-4 bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{profile.display_name}</h1>
+              <h1 className="text-xl font-bold text-gray-900">{profile.displayName}</h1>
               {profile.bio && (
                 <p className="text-gray-600 text-sm mt-1">{profile.bio}</p>
               )}
             </div>
             <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-              profile.is_verified
+              profile.isVerified
                 ? 'bg-green-100 text-green-700'
                 : 'bg-yellow-100 text-yellow-700'
             }`}>
-              {profile.is_verified ? 'Verified' : 'Pending Verification'}
+              {profile.isVerified ? 'Verified' : 'Pending Verification'}
             </span>
           </div>
 
           <div className="mt-4 flex gap-4 text-sm text-gray-600">
-            <span>⭐ {Number(profile.rating_avg).toFixed(1)} ({profile.rating_count} reviews)</span>
-            <span>₹{Number(profile.base_rate)}/hr base</span>
+            <span>⭐ {profile.ratingAvg.toFixed(1)} ({profile.ratingCount} reviews)</span>
+            <span>₹{profile.baseRate}/hr base</span>
           </div>
 
           {profile.areas && profile.areas.length > 0 && (
             <div className="mt-2 text-sm text-gray-500">
-              📍 {profile.areas.map((a: any) => a.area_name).join(', ')}
+              📍 {profile.areas.map((a: ServiceAreaItem) => a.areaName).join(', ')}
             </div>
           )}
         </div>
@@ -76,7 +77,7 @@ export default async function ProviderDashboard() {
             </div>
           ) : (
             <div className="space-y-2">
-              {profile.services.map((service: any) => (
+              {profile.services.map((service: ProviderServiceItem) => (
                 <div
                   key={service.id}
                   className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between"
@@ -89,10 +90,10 @@ export default async function ProviderDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-900">
-                      ₹{Number(service.custom_rate || profile.base_rate)}
+                      ₹{service.customRate || profile.baseRate}
                     </p>
                     <p className="text-xs text-gray-500">
-                      /{service.rate_type?.toLowerCase() || 'hr'}
+                      /{service.rateType?.toLowerCase() || 'hr'}
                     </p>
                   </div>
                 </div>

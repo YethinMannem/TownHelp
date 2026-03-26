@@ -53,9 +53,13 @@ export async function GET(request: Request) {
           }
         } else {
           await supabase.from('users').update({
+            email: user.email || null,
+            phone: user.phone || null,
+            avatar_url: user.user_metadata?.avatar_url || '',
+            is_email_verified: !!user.email_confirmed_at,
+            is_phone_verified: !!user.phone_confirmed_at,
             last_login_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            is_email_verified: !!user.email_confirmed_at,
           }).eq('id', user.id)
         }
       }

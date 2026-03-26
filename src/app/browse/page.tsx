@@ -1,15 +1,8 @@
 import { getServiceCategories, getProviders } from '@/app/actions/booking'
 import Link from 'next/link'
 import BookButton from './BookButton'
-
-const CATEGORY_ICONS: Record<string, string> = {
-  'maid-cleaning': '🧹',
-  'cook-tiffin': '👨‍🍳',
-  'electrician-plumber': '🔧',
-  'dhobi-laundry': '👕',
-  'tutoring': '📚',
-  'pickup-drop': '🚗',
-}
+import { CATEGORY_ICONS } from '@/lib/constants'
+import type { ServiceCategoryItem, ProviderListItem, ProviderServiceItem } from '@/types'
 
 export default async function BrowsePage({
   searchParams,
@@ -49,7 +42,7 @@ export default async function BrowsePage({
           >
             All
           </Link>
-          {categories.map((cat: any) => (
+          {categories.map((cat: ServiceCategoryItem) => (
             <Link
               key={cat.slug}
               href={`/browse?category=${cat.slug}`}
@@ -81,7 +74,7 @@ export default async function BrowsePage({
           </div>
         ) : (
           <div className="space-y-4">
-            {providers.map((provider: any) => (
+            {providers.map((provider: ProviderListItem) => (
               <div
                 key={provider.id}
                 className="bg-white rounded-xl border border-gray-200 p-5"
@@ -89,7 +82,7 @@ export default async function BrowsePage({
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-bold text-gray-900 text-lg">
-                      {provider.display_name}
+                      {provider.displayName}
                     </h3>
                     {provider.bio && (
                       <p className="text-gray-600 text-sm mt-0.5">{provider.bio}</p>
@@ -97,32 +90,32 @@ export default async function BrowsePage({
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-lg text-gray-900">
-                      ₹{Number(provider.base_rate)}
+                      ₹{provider.baseRate}
                     </p>
-                    <p className="text-xs text-gray-500">per hour</p>
+                    <p className="text-xs text-gray-500">base rate</p>
                   </div>
                 </div>
 
                 <div className="mt-2 flex items-center gap-3 text-sm text-gray-500">
-                  <span>⭐ {Number(provider.rating_avg).toFixed(1)} ({provider.rating_count})</span>
-                  {provider.is_verified && (
+                  <span>⭐ {provider.ratingAvg.toFixed(1)} ({provider.ratingCount})</span>
+                  {provider.isVerified && (
                     <span className="text-green-600 font-medium">✓ Verified</span>
                   )}
                   {provider.areas && provider.areas.length > 0 && (
-                    <span>📍 {provider.areas[0].area_name}</span>
+                    <span>📍 {provider.areas[0].areaName}</span>
                   )}
                 </div>
 
                 {provider.services && provider.services.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    {provider.services.map((service: any) => (
+                    {provider.services.map((service: ProviderServiceItem) => (
                       <span
                         key={service.id}
                         className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full"
                       >
                         {CATEGORY_ICONS[service.category?.slug] || '📋'}
                         {service.category?.name}
-                        {service.custom_rate && ` · ₹${Number(service.custom_rate)}`}
+                        {service.customRate && ` · ₹${service.customRate}`}
                       </span>
                     ))}
                   </div>
@@ -131,9 +124,9 @@ export default async function BrowsePage({
                 <div className="mt-4">
                   <BookButton
                     providerId={provider.id}
-                    providerName={provider.display_name}
+                    providerName={provider.displayName}
                     services={provider.services || []}
-                    baseRate={Number(provider.base_rate)}
+                    baseRate={provider.baseRate}
                   />
                 </div>
               </div>
