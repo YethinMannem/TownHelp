@@ -1,7 +1,7 @@
-import type { BookingStatus, RateType } from '@/generated/prisma'
+import type { BookingStatus, MessageType, RateType } from '@/generated/prisma'
 
 // Re-export Prisma enums for convenience
-export type { BookingStatus, RateType } from '@/generated/prisma'
+export type { BookingStatus, MessageType, RateType } from '@/generated/prisma'
 
 // --- Service Categories ---
 
@@ -100,6 +100,7 @@ export interface BookingAsRequester {
     iconName: string | null
   }
   actions: BookingActions
+  hasReview: boolean
 }
 
 export interface BookingAsProvider {
@@ -128,4 +129,63 @@ export interface BookingAsProvider {
 export interface MyBookings {
   asRequester: BookingAsRequester[]
   asProvider: BookingAsProvider[]
+}
+
+// --- Reviews ---
+
+export interface ReviewResult {
+  success: boolean
+  error?: string
+  review?: {
+    id: string
+    rating: number
+    comment: string | null
+    createdAt: Date
+  }
+}
+
+export interface ReviewItem {
+  id: string
+  rating: number
+  comment: string | null
+  createdAt: Date
+  reviewerName: string
+  categoryName: string
+}
+
+// --- Chat ---
+
+export interface ConversationItem {
+  id: string
+  bookingId: string
+  bookingNumber: string
+  bookingStatus: BookingStatus
+  categoryName: string
+  categoryIcon: string | null
+  otherPartyName: string
+  lastMessage: string | null
+  lastMessageAt: Date
+  unreadCount: number
+}
+
+export interface MessageItem {
+  id: string
+  senderId: string
+  senderName: string
+  content: string
+  messageType: MessageType
+  isRead: boolean
+  createdAt: Date
+  isMine: boolean
+}
+
+export interface SendMessageResult {
+  success: boolean
+  error?: string
+  message?: {
+    id: string
+    content: string
+    createdAt: Date
+    senderId: string
+  }
 }
