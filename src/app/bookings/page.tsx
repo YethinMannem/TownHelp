@@ -1,9 +1,8 @@
 import { getMyBookings } from '@/app/actions/booking'
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import type { BookingAsRequester, BookingAsProvider } from '@/types'
 import BookingActionButtons from './_components/BookingActionButtons'
+import ReviewButton from './_components/ReviewButton'
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -15,13 +14,6 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default async function BookingsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
   const { asRequester, asProvider } = await getMyBookings()
   const hasBookings = asRequester.length > 0 || asProvider.length > 0
 
@@ -89,6 +81,11 @@ export default async function BookingsPage() {
                         <p className="mt-1 text-xs text-gray-500 italic">&quot;{booking.requesterNotes}&quot;</p>
                       )}
                       <BookingActionButtons bookingId={booking.id} actions={booking.actions} />
+                      <ReviewButton
+                        bookingId={booking.id}
+                        hasReview={booking.hasReview}
+                        isCompleted={booking.status === 'COMPLETED'}
+                      />
                     </div>
                   ))}
                 </div>

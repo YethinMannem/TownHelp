@@ -1,28 +1,14 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
+import { requireAuthUser } from '@/lib/auth'
 
 export async function createProviderProfile(formData: FormData): Promise<void> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id, deletedAt: null },
-    select: { id: true },
-  })
-
-  if (!dbUser) {
-    throw new Error('User profile not found. Please sign out and sign in again.')
-  }
+  const authUser = await requireAuthUser()
 
   const existingProfile = await prisma.providerProfile.findUnique({
-    where: { userId: dbUser.id, deletedAt: null },
+    where: { userId: authUser.id, deletedAt: null },
     select: { id: true },
   })
 
@@ -43,7 +29,7 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
   await prisma.$transaction(async (tx) => {
     const profile = await tx.providerProfile.create({
       data: {
-        userId: dbUser.id,
+        userId: authUser.id,
         displayName: displayName.trim(),
         baseRate,
         bio: bio?.trim() || null,
@@ -74,24 +60,10 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
 }
 
 export async function addProviderService(formData: FormData): Promise<void> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id, deletedAt: null },
-    select: { id: true },
-  })
-
-  if (!dbUser) {
-    throw new Error('User not found.')
-  }
+  const authUser = await requireAuthUser()
 
   const profile = await prisma.providerProfile.findUnique({
-    where: { userId: dbUser.id, deletedAt: null },
+    where: { userId: authUser.id, deletedAt: null },
     select: { id: true },
   })
 

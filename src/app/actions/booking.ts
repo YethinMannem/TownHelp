@@ -1,9 +1,9 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { requireAuthUser } from '@/lib/auth'
 import { transitionBookingStatus, computeBookingActions } from '@/services/booking.service'
 import type {
   ServiceCategoryItem,
@@ -105,21 +105,7 @@ export async function getProviders(categorySlug?: string): Promise<ProviderListI
 }
 
 export async function createBooking(formData: FormData): Promise<void> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id, deletedAt: null },
-    select: { id: true },
-  })
-
-  if (!dbUser) {
-    throw new Error('User not found.')
-  }
+  const authUser = await requireAuthUser()
 
   const providerId = formData.get('providerId') as string
   const categoryId = formData.get('categoryId') as string
@@ -140,7 +126,7 @@ export async function createBooking(formData: FormData): Promise<void> {
     throw new Error('Provider not found.')
   }
 
-  if (provider.userId === dbUser.id) {
+  if (provider.userId === authUser.id) {
     throw new Error('You cannot book yourself.')
   }
 
@@ -149,12 +135,12 @@ export async function createBooking(formData: FormData): Promise<void> {
   const uniqueId = crypto.randomUUID().slice(0, 8).toUpperCase()
   const bookingNumber = `TH-${dateStr}-${uniqueId}`
 
-  // Transactional: booking + audit log succeed or fail together
+  // Transactional: booking + audit log + conversation succeed or fail together
   await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.create({
       data: {
         bookingNumber,
-        requesterId: dbUser.id,
+        requesterId: authUser.id,
         providerId,
         categoryId,
         status: 'PENDING',
@@ -170,8 +156,17 @@ export async function createBooking(formData: FormData): Promise<void> {
         bookingId: booking.id,
         fromStatus: 'PENDING',
         toStatus: 'PENDING',
-        changedBy: dbUser.id,
+        changedBy: authUser.id,
         notes: 'Booking created by requester',
+      },
+    })
+
+    // Create conversation so both parties can chat immediately
+    await tx.conversation.create({
+      data: {
+        bookingId: booking.id,
+        requesterId: authUser.id,
+        providerId,
       },
     })
   })
@@ -180,19 +175,7 @@ export async function createBooking(formData: FormData): Promise<void> {
 }
 
 export async function getMyBookings(): Promise<MyBookings> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id, deletedAt: null },
-    select: { id: true },
-  })
-
-  if (!dbUser) return { asRequester: [], asProvider: [] }
+  const authUser = await requireAuthUser()
 
   const bookingSelect = {
     id: true,
@@ -207,6 +190,7 @@ export async function getMyBookings(): Promise<MyBookings> {
     completedAt: true,
     cancelledAt: true,
     requesterId: true,
+    review: { select: { id: true } },
     provider: {
       select: { userId: true },
     },
@@ -215,21 +199,22 @@ export async function getMyBookings(): Promise<MyBookings> {
     },
   } as const
 
-  const asRequester = await prisma.booking.findMany({
-    where: { requesterId: dbUser.id },
-    select: {
-      ...bookingSelect,
-      provider: {
-        select: { displayName: true, userId: true },
+  const [asRequester, providerProfile] = await Promise.all([
+    prisma.booking.findMany({
+      where: { requesterId: authUser.id },
+      select: {
+        ...bookingSelect,
+        provider: {
+          select: { displayName: true, userId: true },
+        },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  const providerProfile = await prisma.providerProfile.findUnique({
-    where: { userId: dbUser.id, deletedAt: null },
-    select: { id: true },
-  })
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.providerProfile.findUnique({
+      where: { userId: authUser.id, deletedAt: null },
+      select: { id: true },
+    }),
+  ])
 
   const asProviderRaw = providerProfile
     ? await prisma.booking.findMany({
@@ -259,7 +244,8 @@ export async function getMyBookings(): Promise<MyBookings> {
       cancelledAt: b.cancelledAt,
       provider: { displayName: b.provider.displayName },
       category: b.category,
-      actions: computeBookingActions(b.status, dbUser.id, b.requesterId, b.provider.userId),
+      actions: computeBookingActions(b.status, authUser.id, b.requesterId, b.provider.userId),
+      hasReview: b.review !== null,
     })),
     asProvider: asProviderRaw.map((b) => ({
       id: b.id,
@@ -275,7 +261,7 @@ export async function getMyBookings(): Promise<MyBookings> {
       cancelledAt: b.cancelledAt,
       requester: b.requester,
       category: b.category,
-      actions: computeBookingActions(b.status, dbUser.id, b.requesterId, b.provider.userId),
+      actions: computeBookingActions(b.status, authUser.id, b.requesterId, b.provider.userId),
     })),
   }
 }
@@ -284,35 +270,15 @@ export async function getMyBookings(): Promise<MyBookings> {
 // Booking Lifecycle Actions
 // =============================================================================
 
-async function getAuthenticatedUserId(): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id, deletedAt: null },
-    select: { id: true },
-  })
-
-  if (!dbUser) {
-    throw new Error('User not found.')
-  }
-
-  return dbUser.id
-}
-
 export async function confirmBooking(bookingId: string): Promise<BookingTransitionResult> {
-  const userId = await getAuthenticatedUserId()
+  const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'CONFIRMED', userId)
   if (result.success) revalidatePath('/bookings')
   return result
 }
 
 export async function rejectBooking(bookingId: string): Promise<BookingTransitionResult> {
-  const userId = await getAuthenticatedUserId()
+  const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'CANCELLED', userId, {
     notes: 'Rejected by provider',
   })
@@ -321,7 +287,7 @@ export async function rejectBooking(bookingId: string): Promise<BookingTransitio
 }
 
 export async function startBooking(bookingId: string): Promise<BookingTransitionResult> {
-  const userId = await getAuthenticatedUserId()
+  const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'IN_PROGRESS', userId)
   if (result.success) revalidatePath('/bookings')
   return result
@@ -331,7 +297,7 @@ export async function completeBooking(
   bookingId: string,
   finalAmount?: number
 ): Promise<BookingTransitionResult> {
-  const userId = await getAuthenticatedUserId()
+  const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'COMPLETED', userId, {
     finalAmount,
   })
@@ -340,7 +306,7 @@ export async function completeBooking(
 }
 
 export async function disputeBooking(bookingId: string): Promise<BookingTransitionResult> {
-  const userId = await getAuthenticatedUserId()
+  const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'DISPUTED', userId, {
     notes: 'Dispute opened by user',
   })
@@ -349,7 +315,7 @@ export async function disputeBooking(bookingId: string): Promise<BookingTransiti
 }
 
 export async function cancelBooking(bookingId: string): Promise<BookingTransitionResult> {
-  const userId = await getAuthenticatedUserId()
+  const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'CANCELLED', userId, {
     notes: 'Cancelled by user',
   })
@@ -362,13 +328,10 @@ export async function cancelBooking(bookingId: string): Promise<BookingTransitio
 // =============================================================================
 
 export async function getMyProviderProfile(): Promise<ProviderDashboard | null> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) return null
+  const authUser = await requireAuthUser()
 
   const profile = await prisma.providerProfile.findUnique({
-    where: { userId: user.id, deletedAt: null },
+    where: { userId: authUser.id, deletedAt: null },
     select: {
       id: true,
       displayName: true,
