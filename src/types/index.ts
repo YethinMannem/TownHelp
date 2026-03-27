@@ -1,7 +1,7 @@
-import type { BookingStatus, MessageType, RateType } from '@/generated/prisma'
+import type { BookingStatus, MessageType, NotificationType, RateType } from '@/generated/prisma'
 
 // Re-export Prisma enums for convenience
-export type { BookingStatus, MessageType, RateType } from '@/generated/prisma'
+export type { BookingStatus, MessageType, NotificationType, RateType } from '@/generated/prisma'
 
 // --- Service Categories ---
 
@@ -188,4 +188,22 @@ export interface SendMessageResult {
     createdAt: Date
     senderId: string
   }
+}
+
+// --- Notifications ---
+
+export interface NotificationItem {
+  id: string
+  type: NotificationType
+  title: string
+  body: string
+  data: Record<string, unknown> | null
+  isRead: boolean
+  readAt: Date | null
+  createdAt: Date
+}
+
+export interface NotificationSummary {
+  notifications: NotificationItem[]
+  unreadCount: number
 }
