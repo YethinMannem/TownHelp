@@ -3,11 +3,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
+import { transitionBookingStatus, computeBookingActions } from '@/services/booking.service'
 import type {
   ServiceCategoryItem,
   ProviderListItem,
   ProviderDashboard,
   MyBookings,
+  BookingTransitionResult,
 } from '@/types'
 
 export async function getServiceCategories(): Promise<ServiceCategoryItem[]> {
@@ -196,9 +199,17 @@ export async function getMyBookings(): Promise<MyBookings> {
     bookingNumber: true,
     status: true,
     quotedRate: true,
+    finalAmount: true,
     serviceAddress: true,
     requesterNotes: true,
     createdAt: true,
+    confirmedAt: true,
+    completedAt: true,
+    cancelledAt: true,
+    requesterId: true,
+    provider: {
+      select: { userId: true },
+    },
     category: {
       select: { name: true, iconName: true },
     },
@@ -209,7 +220,7 @@ export async function getMyBookings(): Promise<MyBookings> {
     select: {
       ...bookingSelect,
       provider: {
-        select: { displayName: true },
+        select: { displayName: true, userId: true },
       },
     },
     orderBy: { createdAt: 'desc' },
@@ -220,42 +231,135 @@ export async function getMyBookings(): Promise<MyBookings> {
     select: { id: true },
   })
 
-  let asProviderRaw: {
-    id: string
-    bookingNumber: string
-    status: typeof asRequester[number]['status']
-    quotedRate: typeof asRequester[number]['quotedRate']
-    serviceAddress: string | null
-    requesterNotes: string | null
-    createdAt: Date
-    category: { name: string; iconName: string | null }
-    requester: { fullName: string; phone: string | null }
-  }[] = []
-
-  if (providerProfile) {
-    asProviderRaw = await prisma.booking.findMany({
-      where: { providerId: providerProfile.id },
-      select: {
-        ...bookingSelect,
-        requester: {
-          select: { fullName: true, phone: true },
+  const asProviderRaw = providerProfile
+    ? await prisma.booking.findMany({
+        where: { providerId: providerProfile.id },
+        select: {
+          ...bookingSelect,
+          requester: {
+            select: { fullName: true, phone: true },
+          },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-  }
+        orderBy: { createdAt: 'desc' },
+      })
+    : []
 
   return {
     asRequester: asRequester.map((b) => ({
-      ...b,
+      id: b.id,
+      bookingNumber: b.bookingNumber,
+      status: b.status,
       quotedRate: b.quotedRate ? Number(b.quotedRate) : null,
+      finalAmount: b.finalAmount ? Number(b.finalAmount) : null,
+      serviceAddress: b.serviceAddress,
+      requesterNotes: b.requesterNotes,
+      createdAt: b.createdAt,
+      confirmedAt: b.confirmedAt,
+      completedAt: b.completedAt,
+      cancelledAt: b.cancelledAt,
+      provider: { displayName: b.provider.displayName },
+      category: b.category,
+      actions: computeBookingActions(b.status, dbUser.id, b.requesterId, b.provider.userId),
     })),
     asProvider: asProviderRaw.map((b) => ({
-      ...b,
+      id: b.id,
+      bookingNumber: b.bookingNumber,
+      status: b.status,
       quotedRate: b.quotedRate ? Number(b.quotedRate) : null,
+      finalAmount: b.finalAmount ? Number(b.finalAmount) : null,
+      serviceAddress: b.serviceAddress,
+      requesterNotes: b.requesterNotes,
+      createdAt: b.createdAt,
+      confirmedAt: b.confirmedAt,
+      completedAt: b.completedAt,
+      cancelledAt: b.cancelledAt,
+      requester: b.requester,
+      category: b.category,
+      actions: computeBookingActions(b.status, dbUser.id, b.requesterId, b.provider.userId),
     })),
   }
 }
+
+// =============================================================================
+// Booking Lifecycle Actions
+// =============================================================================
+
+async function getAuthenticatedUserId(): Promise<string> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/login')
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id, deletedAt: null },
+    select: { id: true },
+  })
+
+  if (!dbUser) {
+    throw new Error('User not found.')
+  }
+
+  return dbUser.id
+}
+
+export async function confirmBooking(bookingId: string): Promise<BookingTransitionResult> {
+  const userId = await getAuthenticatedUserId()
+  const result = await transitionBookingStatus(bookingId, 'CONFIRMED', userId)
+  if (result.success) revalidatePath('/bookings')
+  return result
+}
+
+export async function rejectBooking(bookingId: string): Promise<BookingTransitionResult> {
+  const userId = await getAuthenticatedUserId()
+  const result = await transitionBookingStatus(bookingId, 'CANCELLED', userId, {
+    notes: 'Rejected by provider',
+  })
+  if (result.success) revalidatePath('/bookings')
+  return result
+}
+
+export async function startBooking(bookingId: string): Promise<BookingTransitionResult> {
+  const userId = await getAuthenticatedUserId()
+  const result = await transitionBookingStatus(bookingId, 'IN_PROGRESS', userId)
+  if (result.success) revalidatePath('/bookings')
+  return result
+}
+
+export async function completeBooking(
+  bookingId: string,
+  finalAmount?: number
+): Promise<BookingTransitionResult> {
+  const userId = await getAuthenticatedUserId()
+  const result = await transitionBookingStatus(bookingId, 'COMPLETED', userId, {
+    finalAmount,
+  })
+  if (result.success) revalidatePath('/bookings')
+  return result
+}
+
+export async function disputeBooking(bookingId: string): Promise<BookingTransitionResult> {
+  const userId = await getAuthenticatedUserId()
+  const result = await transitionBookingStatus(bookingId, 'DISPUTED', userId, {
+    notes: 'Dispute opened by user',
+  })
+  if (result.success) revalidatePath('/bookings')
+  return result
+}
+
+export async function cancelBooking(bookingId: string): Promise<BookingTransitionResult> {
+  const userId = await getAuthenticatedUserId()
+  const result = await transitionBookingStatus(bookingId, 'CANCELLED', userId, {
+    notes: 'Cancelled by user',
+  })
+  if (result.success) revalidatePath('/bookings')
+  return result
+}
+
+// =============================================================================
+// Provider Profile
+// =============================================================================
 
 export async function getMyProviderProfile(): Promise<ProviderDashboard | null> {
   const supabase = await createClient()

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import type { BookingAsRequester, BookingAsProvider } from '@/types'
+import BookingActionButtons from './_components/BookingActionButtons'
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -87,6 +88,7 @@ export default async function BookingsPage() {
                       {booking.requesterNotes && (
                         <p className="mt-1 text-xs text-gray-500 italic">&quot;{booking.requesterNotes}&quot;</p>
                       )}
+                      <BookingActionButtons bookingId={booking.id} actions={booking.actions} />
                     </div>
                   ))}
                 </div>
@@ -127,6 +129,7 @@ export default async function BookingsPage() {
                       {booking.serviceAddress && (
                         <p className="mt-1 text-xs text-gray-500">📍 {booking.serviceAddress}</p>
                       )}
+                      <BookingActionButtons bookingId={booking.id} actions={booking.actions} />
                     </div>
                   ))}
                 </div>

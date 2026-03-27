@@ -65,14 +65,33 @@ export interface ProviderDashboard {
 
 // --- Bookings ---
 
+export interface BookingActions {
+  canConfirm: boolean
+  canReject: boolean
+  canStart: boolean
+  canComplete: boolean
+  canCancel: boolean
+  canDispute: boolean
+}
+
+export interface BookingTransitionResult {
+  success: boolean
+  error?: string
+  booking?: { id: string; status: BookingStatus }
+}
+
 export interface BookingAsRequester {
   id: string
   bookingNumber: string
   status: BookingStatus
   quotedRate: number | null
+  finalAmount: number | null
   serviceAddress: string | null
   requesterNotes: string | null
   createdAt: Date
+  confirmedAt: Date | null
+  completedAt: Date | null
+  cancelledAt: Date | null
   provider: {
     displayName: string
   }
@@ -80,6 +99,7 @@ export interface BookingAsRequester {
     name: string
     iconName: string | null
   }
+  actions: BookingActions
 }
 
 export interface BookingAsProvider {
@@ -87,9 +107,13 @@ export interface BookingAsProvider {
   bookingNumber: string
   status: BookingStatus
   quotedRate: number | null
+  finalAmount: number | null
   serviceAddress: string | null
   requesterNotes: string | null
   createdAt: Date
+  confirmedAt: Date | null
+  completedAt: Date | null
+  cancelledAt: Date | null
   requester: {
     fullName: string
     phone: string | null
@@ -98,6 +122,7 @@ export interface BookingAsProvider {
     name: string
     iconName: string | null
   }
+  actions: BookingActions
 }
 
 export interface MyBookings {
