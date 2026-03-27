@@ -19,7 +19,7 @@ export default function LoginPage() {
         </Suspense>
 
         <p className="text-center text-xs text-gray-400">
-          Passwordless sign-in powered by magic link
+          Secure sign-in with email and password
         </p>
       </div>
     </div>

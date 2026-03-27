@@ -1,17 +1,19 @@
 import { createClient } from '@/lib/supabase/client'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 export const authService = {
   /**
-   * Sign in or sign up with magic link
-   * If the email doesn't exist, Supabase creates the account automatically
-   * If it does exist, it sends a login link
+   * Sign up with email and password.
+   * Supabase creates the user and sends a verification email.
+   * Returns user but NO session — user must verify email first.
    */
-  async signInWithMagicLink(email: string, fullName?: string) {
+  async signUp(email: string, password: string, fullName: string) {
     const supabase = createClient()
-    const { data, error } = await supabase.auth.signInWithOtp({
+    const { data, error } = await supabase.auth.signUp({
       email,
+      password,
       options: {
-        data: fullName ? { full_name: fullName } : undefined,
+        data: { full_name: fullName },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     })
@@ -19,7 +21,37 @@ export const authService = {
   },
 
   /**
-   * Sign out — clears session and cookies
+   * Sign in with email and password.
+   * Only works after email is verified.
+   * Returns session directly — no redirect needed.
+   */
+  async signIn(email: string, password: string) {
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    return { data, error }
+  },
+
+  /**
+   * Resend the verification email for an unverified account.
+   * Uses Supabase OTP resend with email type.
+   */
+  async resendVerificationEmail(email: string) {
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+    return { data, error }
+  },
+
+  /**
+   * Sign out — clears session and cookies.
    */
   async signOut() {
     const supabase = createClient()
@@ -28,7 +60,7 @@ export const authService = {
   },
 
   /**
-   * Get current user (client-side)
+   * Get current user (client-side).
    */
   async getUser() {
     const supabase = createClient()
@@ -37,9 +69,9 @@ export const authService = {
   },
 
   /**
-   * Listen to auth state changes (login, logout, token refresh)
+   * Listen to auth state changes (login, logout, token refresh).
    */
-  onAuthStateChange(callback: (event: string, session: any) => void) {
+  onAuthStateChange(callback: (event: AuthChangeEvent, session: Session | null) => void) {
     const supabase = createClient()
     return supabase.auth.onAuthStateChange(callback)
   },
