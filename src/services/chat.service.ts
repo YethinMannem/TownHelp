@@ -113,7 +113,7 @@ export async function getMessages(
   })
 
   if (!conversation) {
-    return { messages: [], nextCursor: null }
+    throw new Error('CONVERSATION_NOT_FOUND')
   }
 
   const isParticipant =
@@ -121,15 +121,17 @@ export async function getMessages(
     conversation.provider.userId === userId
 
   if (!isParticipant) {
-    return { messages: [], nextCursor: null }
+    throw new Error('NOT_A_PARTICIPANT')
   }
 
   // Fetch messages: newest first, then reverse for display order
+  // Cursor is a message ID to avoid timestamp collision issues
   const messages = await prisma.message.findMany({
-    where: {
-      conversationId,
-      ...(cursor && { createdAt: { lt: new Date(cursor) } }),
-    },
+    where: { conversationId },
+    ...(cursor && {
+      skip: 1,
+      cursor: { id: cursor },
+    }),
     select: {
       id: true,
       senderId: true,
@@ -152,7 +154,7 @@ export async function getMessages(
   const ascending = pageMessages.reverse()
 
   const nextCursor = hasMore
-    ? ascending[0].createdAt.toISOString()
+    ? ascending[0].id
     : null
 
   return {

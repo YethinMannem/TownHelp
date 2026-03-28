@@ -9,7 +9,7 @@ import type { BookingTransitionResult } from '@/types'
 const VALID_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['IN_PROGRESS', 'CANCELLED'],
-  IN_PROGRESS: ['COMPLETED', 'DISPUTED'],
+  IN_PROGRESS: ['COMPLETED', 'CANCELLED', 'DISPUTED'],
   COMPLETED: ['DISPUTED'],
   CANCELLED: [],
   DISPUTED: [],
@@ -23,6 +23,7 @@ const TRANSITION_AUTH: Record<string, TransitionRole> = {
   'CONFIRMED→IN_PROGRESS': 'provider',
   'CONFIRMED→CANCELLED': 'either',
   'IN_PROGRESS→COMPLETED': 'provider',
+  'IN_PROGRESS→CANCELLED': 'requester',
   'IN_PROGRESS→DISPUTED': 'either',
   'COMPLETED→DISPUTED': 'either',
 }
@@ -37,50 +38,47 @@ const STATUS_TIMESTAMPS: Partial<Record<BookingStatus, string>> = {
 
 // Notification config per transition
 const TRANSITION_NOTIFICATIONS: Record<string, {
-  notifyRole: 'requester' | 'provider'
-  type: 'BOOKING_CONFIRMED' | 'BOOKING_CANCELLED'
+  type: 'BOOKING_CONFIRMED' | 'BOOKING_CANCELLED' | 'SYSTEM' | 'DISPUTE_OPENED'
   title: string
   body: (bookingNumber: string) => string
 }> = {
   'PENDING→CONFIRMED': {
-    notifyRole: 'requester',
     type: 'BOOKING_CONFIRMED',
     title: 'Booking Confirmed',
     body: (bn) => `Your booking ${bn} has been confirmed by the provider.`,
   },
   'PENDING→CANCELLED': {
-    notifyRole: 'requester', // overridden at runtime if provider cancels
     type: 'BOOKING_CANCELLED',
     title: 'Booking Cancelled',
     body: (bn) => `Booking ${bn} has been cancelled.`,
   },
   'CONFIRMED→IN_PROGRESS': {
-    notifyRole: 'requester',
     type: 'BOOKING_CONFIRMED',
     title: 'Service Started',
     body: (bn) => `The provider has started working on booking ${bn}.`,
   },
   'CONFIRMED→CANCELLED': {
-    notifyRole: 'requester',
     type: 'BOOKING_CANCELLED',
     title: 'Booking Cancelled',
     body: (bn) => `Booking ${bn} has been cancelled.`,
   },
   'IN_PROGRESS→COMPLETED': {
-    notifyRole: 'requester',
-    type: 'BOOKING_CONFIRMED',
+    type: 'SYSTEM',
     title: 'Service Completed',
     body: (bn) => `Booking ${bn} has been marked as completed.`,
   },
-  'IN_PROGRESS→DISPUTED': {
-    notifyRole: 'requester',
+  'IN_PROGRESS→CANCELLED': {
     type: 'BOOKING_CANCELLED',
+    title: 'Booking Cancelled',
+    body: (bn) => `Booking ${bn} has been cancelled by the requester during service.`,
+  },
+  'IN_PROGRESS→DISPUTED': {
+    type: 'DISPUTE_OPENED',
     title: 'Dispute Opened',
     body: (bn) => `A dispute has been opened for booking ${bn}.`,
   },
   'COMPLETED→DISPUTED': {
-    notifyRole: 'requester',
-    type: 'BOOKING_CANCELLED',
+    type: 'DISPUTE_OPENED',
     title: 'Dispute Opened',
     body: (bn) => `A dispute has been opened for booking ${bn}.`,
   },
@@ -192,6 +190,17 @@ export async function transitionBookingStatus(
       // Requester pays via Razorpay after service is done.
     }
 
+    if (currentStatus === 'COMPLETED' && toStatus === 'DISPUTED') {
+      // The completedBookings counter was already incremented when the booking
+      // reached COMPLETED. Roll it back now that a dispute has been opened,
+      // but never let it drop below 0.
+      await tx.$executeRaw`
+        UPDATE provider_profiles
+        SET completed_bookings = GREATEST(completed_bookings - 1, 0)
+        WHERE id = ${booking.providerId}::uuid
+      `
+    }
+
     return { success: true as const }
   })
 
@@ -276,7 +285,8 @@ export function computeBookingActions(
     canComplete: isProvider && status === 'IN_PROGRESS',
     canCancel:
       (status === 'PENDING' && (isRequester || isProvider)) ||
-      (status === 'CONFIRMED' && (isRequester || isProvider)),
+      (status === 'CONFIRMED' && (isRequester || isProvider)) ||
+      (status === 'IN_PROGRESS' && isRequester),
     canDispute:
       (status === 'IN_PROGRESS' && (isRequester || isProvider)) ||
       (status === 'COMPLETED' && (isRequester || isProvider)),

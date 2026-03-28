@@ -65,16 +65,19 @@ export async function submitReview(params: SubmitReviewParams): Promise<ReviewRe
         where: { revieweeId, isVisible: true },
         _avg: { rating: true },
         _count: { rating: true },
+        _sum: { rating: true },
       })
 
       const newAvg = Math.round((aggregate._avg.rating ?? 0) * 100) / 100
       const newCount = aggregate._count.rating
+      const newSum = aggregate._sum.rating ?? 0
 
       await tx.providerProfile.update({
         where: { id: booking.provider.id },
         data: {
           ratingAvg: newAvg,
           ratingCount: newCount,
+          ratingSum: newSum,
         },
       })
 

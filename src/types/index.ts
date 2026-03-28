@@ -56,7 +56,6 @@ export interface ProviderListItem {
   availableTo: Date | null
   user: {
     fullName: string
-    phone: string | null
   }
   services: ProviderServiceItem[]
   areas: ServiceAreaItem[]
