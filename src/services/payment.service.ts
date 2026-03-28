@@ -1,3 +1,4 @@
+/*
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
@@ -34,13 +35,13 @@ const METHOD_MAP: Record<string, PaymentMethod> = {
   netbanking: 'CARD', // placeholder until NETBANKING enum value exists
 }
 
-/** Timing-safe string comparison that handles different lengths without throwing */
+// Timing-safe string comparison that handles different lengths without throwing
 function safeCompare(a: string, b: string): boolean {
   if (a.length !== b.length) return false
   return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b))
 }
 
-/** Resolve payment method from Razorpay, log unknown methods */
+// Resolve payment method from Razorpay, log unknown methods
 function resolvePaymentMethod(method: unknown): PaymentMethod {
   if (typeof method !== 'string') return 'UPI'
   if (!METHOD_MAP[method]) {
@@ -49,7 +50,7 @@ function resolvePaymentMethod(method: unknown): PaymentMethod {
   return METHOD_MAP[method] ?? 'UPI'
 }
 
-/** Compare amounts using integer paise to avoid floating-point issues */
+// Compare amounts using integer paise to avoid floating-point issues
 function amountsMatch(dbAmount: unknown, razorpayPaise: number): boolean {
   const expectedPaise = Math.round(Number(dbAmount) * 100)
   return expectedPaise === razorpayPaise
@@ -404,5 +405,115 @@ export async function handleWebhookEvent(
   } catch (error) {
     console.error('[webhook] processing failed:', error)
     return { success: false, error: 'Internal error processing webhook.' }
+  }
+}
+*/
+
+/**
+ * Offline Payment Tracking Service
+ *
+ * MVP approach: requester pays provider directly (cash/UPI/etc.)
+ * and both parties confirm the payment through the app.
+ *
+ * The Razorpay integration (commented above) will be re-enabled
+ * when TownHelp moves to a commission-based model.
+ */
+
+import { prisma } from '@/lib/prisma'
+
+interface ConfirmPaymentResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * Requester confirms they have paid the provider offline.
+ * Creates/updates the payment record with status COMPLETED.
+ */
+export async function confirmOfflinePayment(
+  bookingId: string,
+  userId: string,
+  paymentMethod: 'CASH' | 'UPI' = 'CASH'
+): Promise<ConfirmPaymentResult> {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        status: true,
+        requesterId: true,
+        quotedRate: true,
+        finalAmount: true,
+        provider: { select: { userId: true } },
+        payment: { select: { id: true, status: true } },
+      },
+    })
+
+    if (!booking) {
+      return { success: false, error: 'Booking not found.' }
+    }
+
+    if (booking.requesterId !== userId) {
+      return { success: false, error: 'Only the requester can confirm payment.' }
+    }
+
+    if (booking.status !== 'COMPLETED') {
+      return { success: false, error: 'Payment can only be confirmed after service is completed.' }
+    }
+
+    if (booking.payment?.status === 'COMPLETED') {
+      return { success: false, error: 'Payment has already been confirmed.' }
+    }
+
+    const amount = booking.finalAmount != null
+      ? Number(booking.finalAmount)
+      : booking.quotedRate != null
+        ? Number(booking.quotedRate)
+        : 0
+
+    // Upsert: update existing PENDING record or create new one
+    if (booking.payment) {
+      await prisma.payment.update({
+        where: { id: booking.payment.id },
+        data: {
+          status: 'COMPLETED',
+          paymentMethod,
+          amount,
+          paidAt: new Date(),
+        },
+      })
+    } else {
+      await prisma.payment.create({
+        data: {
+          bookingId: booking.id,
+          idempotencyKey: `offline-${booking.id}`,
+          amount,
+          paymentMethod,
+          status: 'COMPLETED',
+          paidAt: new Date(),
+        },
+      })
+    }
+
+    // Notify provider that payment was confirmed (non-fatal)
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: booking.provider.userId,
+          channel: 'IN_APP',
+          type: 'PAYMENT_RECEIVED',
+          title: 'Payment Confirmed',
+          body: `The requester confirmed payment of ₹${amount} for your booking.`,
+          data: { bookingId },
+        },
+      })
+    } catch (notifError) {
+      console.error('[confirmOfflinePayment] notification failed:', notifError)
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('[confirmOfflinePayment] failed:', error)
+    return { success: false, error: 'Failed to confirm payment. Please try again.' }
   }
 }

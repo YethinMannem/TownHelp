@@ -1,3 +1,4 @@
+/*
 'use client'
 
 import { useState, useCallback } from 'react'
@@ -144,5 +145,104 @@ export default function PaymentCheckout({ bookingId, amount, bookingNumber }: Pa
         </div>
       )}
     </>
+  )
+}
+*/
+
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { confirmPayment } from '@/app/actions/booking'
+
+interface PaymentCheckoutProps {
+  bookingId: string
+  amount: number
+  bookingNumber: string
+}
+
+type PaymentState = 'idle' | 'confirming' | 'success' | 'error'
+
+export default function PaymentCheckout({ bookingId, amount, bookingNumber }: PaymentCheckoutProps) {
+  const router = useRouter()
+  const [state, setState] = useState<PaymentState>('idle')
+  const [method, setMethod] = useState<'CASH' | 'UPI'>('CASH')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  async function handleConfirm() {
+    setState('confirming')
+    setErrorMessage(null)
+
+    try {
+      const result = await confirmPayment(bookingId, method)
+
+      if (!result.success) {
+        setState('error')
+        setErrorMessage(result.error || 'Failed to confirm payment.')
+        return
+      }
+
+      setState('success')
+      router.refresh()
+    } catch {
+      setState('error')
+      setErrorMessage('Something went wrong. Please try again.')
+    }
+  }
+
+  if (state === 'success') {
+    return (
+      <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
+        <p className="text-sm font-medium text-green-800">Payment confirmed!</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-gray-600">
+        Pay the provider directly and confirm below.
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setMethod('CASH')}
+          className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
+            method === 'CASH'
+              ? 'border-blue-600 bg-blue-50 text-blue-700'
+              : 'border-gray-200 text-gray-600 hover:border-gray-300'
+          }`}
+        >
+          Cash
+        </button>
+        <button
+          type="button"
+          onClick={() => setMethod('UPI')}
+          className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
+            method === 'UPI'
+              ? 'border-blue-600 bg-blue-50 text-blue-700'
+              : 'border-gray-200 text-gray-600 hover:border-gray-300'
+          }`}
+        >
+          UPI
+        </button>
+      </div>
+      <button
+        onClick={handleConfirm}
+        disabled={state === 'confirming'}
+        className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white
+                   transition-colors hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+      >
+        {state === 'confirming' ? 'Confirming...' : `I paid ₹${amount}`}
+      </button>
+
+      {errorMessage && (
+        <p className="text-xs text-red-600 text-center">{errorMessage}</p>
+      )}
+
+      <p className="text-xs text-gray-500 text-center">
+        Booking {bookingNumber}
+      </p>
+    </div>
   )
 }

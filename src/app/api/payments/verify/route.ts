@@ -1,3 +1,4 @@
+/*
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 import { verifyPayment } from '@/services/payment.service'
@@ -43,4 +44,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   return NextResponse.json({ success: true, paymentId: result.paymentId })
+}
+*/
+
+import { NextResponse } from 'next/server'
+
+// Razorpay payment routes disabled for MVP.
+// Payments are tracked offline — see src/services/payment.service.ts
+export async function POST(): Promise<NextResponse> {
+  return NextResponse.json(
+    { error: 'Online payments are not available yet. Please pay the provider directly.' },
+    { status: 501 }
+  )
 }
