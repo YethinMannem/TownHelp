@@ -25,6 +25,7 @@ export async function toggleFavorite(providerId: string): Promise<boolean> {
   if (existing) {
     await prisma.favorite.delete({ where: { id: existing.id } })
     revalidatePath('/browse')
+    revalidatePath('/favorites')
     return false
   }
 
@@ -36,6 +37,7 @@ export async function toggleFavorite(providerId: string): Promise<boolean> {
   })
 
   revalidatePath('/browse')
+  revalidatePath('/favorites')
   return true
 }
 

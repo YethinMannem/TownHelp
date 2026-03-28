@@ -250,6 +250,106 @@ export async function removeServiceArea(areaId: string): Promise<void> {
   revalidatePath('/provider/dashboard')
 }
 
+// --- Public Provider Detail ---
+
+export interface ProviderDetail {
+  id: string
+  userId: string
+  displayName: string
+  bio: string | null
+  baseRate: number
+  ratingAvg: number
+  ratingCount: number
+  completedBookings: number
+  isVerified: boolean
+  isAvailable: boolean
+  services: {
+    id: string
+    customRate: number | null
+    rateType: string | null
+    description: string | null
+    category: {
+      id: string
+      name: string
+      slug: string
+      iconName: string | null
+    }
+  }[]
+  areas: {
+    areaName: string
+    city: string
+    pincode: string | null
+    isPrimary: boolean
+  }[]
+}
+
+export async function getProviderById(id: string): Promise<ProviderDetail | null> {
+  const profile = await prisma.providerProfile.findUnique({
+    where: { id, deletedAt: null },
+    select: {
+      id: true,
+      userId: true,
+      displayName: true,
+      bio: true,
+      baseRate: true,
+      ratingAvg: true,
+      ratingCount: true,
+      completedBookings: true,
+      isVerified: true,
+      isAvailable: true,
+      services: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          customRate: true,
+          rateType: true,
+          description: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              iconName: true,
+            },
+          },
+        },
+      },
+      serviceAreas: {
+        select: {
+          areaName: true,
+          city: true,
+          pincode: true,
+          isPrimary: true,
+        },
+        orderBy: { isPrimary: 'desc' },
+      },
+    },
+  })
+
+  if (!profile) return null
+
+  return {
+    id: profile.id,
+    userId: profile.userId,
+    displayName: profile.displayName,
+    bio: profile.bio,
+    baseRate: Number(profile.baseRate),
+    ratingAvg: Number(profile.ratingAvg),
+    ratingCount: profile.ratingCount,
+    completedBookings: profile.completedBookings,
+    isVerified: profile.isVerified,
+    isAvailable: profile.isAvailable,
+    services: profile.services.map((s) => ({
+      id: s.id,
+      customRate: s.customRate ? Number(s.customRate) : null,
+      rateType: s.rateType,
+      description: s.description,
+      category: s.category,
+    })),
+    areas: profile.serviceAreas,
+  }
+}
+
 export async function toggleAvailability(): Promise<void> {
   const authUser = await requireAuthUser()
   const profile = await requireProviderProfile(authUser.id)
