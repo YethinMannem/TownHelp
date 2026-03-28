@@ -102,6 +102,15 @@ export default async function ProviderDashboard() {
           )}
         </div>
 
+        <div className="mt-6">
+          <Link
+            href="/provider/availability"
+            className="block w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Availability Settings
+          </Link>
+        </div>
+
         <p className="mt-8 text-center text-xs text-gray-400">
           Session 4 — Provider Dashboard
         </p>

@@ -16,6 +16,8 @@ export function makeBooking(status: BookingStatus) {
     status,
     requesterId: REQUESTER_ID,
     providerId: PROVIDER_PROFILE_ID,
+    quotedRate: 500,
+    finalAmount: null,
     provider: { userId: PROVIDER_USER_ID },
   }
 }

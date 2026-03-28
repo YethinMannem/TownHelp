@@ -289,11 +289,12 @@ describe('transitionBookingStatus', () => {
 
   it('increments completedBookings on COMPLETED transition', async () => {
     prismaMock.booking.findUnique.mockResolvedValue(makeBooking('IN_PROGRESS'))
+    prismaMock.notification.create.mockResolvedValue({})
     const tx = mockTransaction()
     tx.booking.updateMany.mockResolvedValue({ count: 1 })
     tx.bookingStatusLog.create.mockResolvedValue({})
     tx.providerProfile.update.mockResolvedValue({})
-    tx.notification.create.mockResolvedValue({})
+    tx.payment.create.mockResolvedValue({})
 
     await transitionBookingStatus(BOOKING_ID, 'COMPLETED', PROVIDER_USER_ID)
 
@@ -317,11 +318,12 @@ describe('transitionBookingStatus', () => {
 
   it('sets finalAmount on COMPLETED transition', async () => {
     prismaMock.booking.findUnique.mockResolvedValue(makeBooking('IN_PROGRESS'))
+    prismaMock.notification.create.mockResolvedValue({})
     const tx = mockTransaction()
     tx.booking.updateMany.mockResolvedValue({ count: 1 })
     tx.bookingStatusLog.create.mockResolvedValue({})
     tx.providerProfile.update.mockResolvedValue({})
-    tx.notification.create.mockResolvedValue({})
+    tx.payment.create.mockResolvedValue({})
 
     await transitionBookingStatus(BOOKING_ID, 'COMPLETED', PROVIDER_USER_ID, { finalAmount: 500 })
 
@@ -339,14 +341,14 @@ describe('transitionBookingStatus', () => {
 
   it('notifies requester when provider confirms', async () => {
     prismaMock.booking.findUnique.mockResolvedValue(makeBooking('PENDING'))
+    prismaMock.notification.create.mockResolvedValue({})
     const tx = mockTransaction()
     tx.booking.updateMany.mockResolvedValue({ count: 1 })
     tx.bookingStatusLog.create.mockResolvedValue({})
-    tx.notification.create.mockResolvedValue({})
 
     await transitionBookingStatus(BOOKING_ID, 'CONFIRMED', PROVIDER_USER_ID)
 
-    expect(tx.notification.create).toHaveBeenCalledWith({
+    expect(prismaMock.notification.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: REQUESTER_ID,
         type: 'BOOKING_CONFIRMED',
@@ -357,14 +359,14 @@ describe('transitionBookingStatus', () => {
 
   it('notifies provider when requester cancels', async () => {
     prismaMock.booking.findUnique.mockResolvedValue(makeBooking('PENDING'))
+    prismaMock.notification.create.mockResolvedValue({})
     const tx = mockTransaction()
     tx.booking.updateMany.mockResolvedValue({ count: 1 })
     tx.bookingStatusLog.create.mockResolvedValue({})
-    tx.notification.create.mockResolvedValue({})
 
     await transitionBookingStatus(BOOKING_ID, 'CANCELLED', REQUESTER_ID)
 
-    expect(tx.notification.create).toHaveBeenCalledWith({
+    expect(prismaMock.notification.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: PROVIDER_USER_ID,
         type: 'BOOKING_CANCELLED',

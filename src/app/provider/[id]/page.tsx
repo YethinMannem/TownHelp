@@ -5,6 +5,7 @@ import { getProviderById } from '@/app/actions/provider'
 import { isFavorited } from '@/app/actions/favorite'
 import { getProviderReviews } from '@/app/actions/review'
 import FavoriteButton from './FavoriteButton'
+import BookButton from '@/app/browse/BookButton'
 import type { ReviewItem } from '@/types'
 
 interface ProviderDetailPageProps {
@@ -91,13 +92,13 @@ export default async function ProviderDetailPage({ params }: ProviderDetailPageP
           </div>
 
           {/* Actions */}
-          <div className="mt-4 flex gap-2 flex-wrap">
-            <Link
-              href={`/browse`}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Book this provider
-            </Link>
+          <div className="mt-4 space-y-2">
+            <BookButton
+              providerId={provider.id}
+              providerName={provider.displayName}
+              services={provider.services}
+              baseRate={provider.baseRate}
+            />
             <FavoriteButton providerId={provider.id} initialFavorited={favorited} />
           </div>
         </section>

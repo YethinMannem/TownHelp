@@ -35,6 +35,7 @@ function createPrismaMock() {
     message: createModelMock(),
     notification: createModelMock(),
     favorite: createModelMock(),
+    payment: createModelMock(),
     $transaction: vi.fn(),
   }
 }

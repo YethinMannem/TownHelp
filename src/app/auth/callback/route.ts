@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       const syncResult = await syncUserOnLogin()
       if (!syncResult.success) {
         console.error('User sync failed in callback:', syncResult.error)
+        return NextResponse.redirect(`${origin}/login?error=sync_failed`)
       }
 
       return NextResponse.redirect(`${origin}${next}`)

@@ -105,6 +105,8 @@ export async function transitionBookingStatus(
       status: true,
       requesterId: true,
       providerId: true,
+      quotedRate: true,
+      finalAmount: true,
       provider: { select: { userId: true } },
     },
   })
@@ -155,7 +157,7 @@ export async function transitionBookingStatus(
     }),
   }
 
-  // 5. Atomic check-and-set + audit log + notification + stats in one transaction
+  // 5. Atomic check-and-set + audit log + payment (on completion) + stats
   const result = await prisma.$transaction(async (tx) => {
     // Atomic: only update if status hasn't changed since we read it
     const updated = await tx.booking.updateMany({
@@ -178,33 +180,31 @@ export async function transitionBookingStatus(
       },
     })
 
-    // Increment completedBookings on provider profile
     if (toStatus === 'COMPLETED') {
+      // Increment completedBookings on provider profile
       await tx.providerProfile.update({
         where: { id: booking.providerId },
         data: { completedBookings: { increment: 1 } },
       })
-    }
 
-    // Create notification for the other party
-    const notifConfig = TRANSITION_NOTIFICATIONS[transitionKey]
-    if (notifConfig) {
-      // Determine who to notify: the other party
-      let notifyUserId: string
-      if (isProvider) {
-        notifyUserId = booking.requesterId
-      } else {
-        notifyUserId = booking.provider.userId
-      }
+      // Create a CASH payment record — finalAmount takes precedence over quotedRate
+      const paymentAmount =
+        options?.finalAmount != null
+          ? options.finalAmount
+          : booking.finalAmount != null
+            ? Number(booking.finalAmount)
+            : booking.quotedRate != null
+              ? Number(booking.quotedRate)
+              : 0
 
-      await tx.notification.create({
+      await tx.payment.create({
         data: {
-          userId: notifyUserId,
-          channel: 'IN_APP',
-          type: notifConfig.type,
-          title: notifConfig.title,
-          body: notifConfig.body(booking.bookingNumber),
-          data: { bookingId, fromStatus: currentStatus, toStatus },
+          bookingId,
+          idempotencyKey: `cash-${bookingId}`,
+          amount: paymentAmount,
+          paymentMethod: 'CASH',
+          status: 'COMPLETED',
+          paidAt: now,
         },
       })
     }
@@ -214,6 +214,32 @@ export async function transitionBookingStatus(
 
   if (!result.success) {
     return result
+  }
+
+  // 6. Notification — outside the transaction so a notification failure never
+  //    rolls back a completed booking transition.
+  const notifConfig = TRANSITION_NOTIFICATIONS[transitionKey]
+  if (notifConfig) {
+    const notifyUserId = isProvider ? booking.requesterId : booking.provider.userId
+
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: notifyUserId,
+          channel: 'IN_APP',
+          type: notifConfig.type,
+          title: notifConfig.title,
+          body: notifConfig.body(booking.bookingNumber),
+          data: { bookingId, fromStatus: currentStatus, toStatus },
+        },
+      })
+    } catch (notifError) {
+      console.error(
+        `[transitionBookingStatus] notification failed for booking ${bookingId}:`,
+        notifError,
+      )
+      // Non-fatal: booking transition already succeeded
+    }
   }
 
   return {

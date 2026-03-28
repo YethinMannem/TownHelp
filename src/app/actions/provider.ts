@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { requireAuthUser } from '@/lib/auth'
+import type { ProviderServiceItem } from '@/types'
 
 // --- Helper ---
 
@@ -263,18 +264,7 @@ export interface ProviderDetail {
   completedBookings: number
   isVerified: boolean
   isAvailable: boolean
-  services: {
-    id: string
-    customRate: number | null
-    rateType: string | null
-    description: string | null
-    category: {
-      id: string
-      name: string
-      slug: string
-      iconName: string | null
-    }
-  }[]
+  services: ProviderServiceItem[]
   areas: {
     areaName: string
     city: string
@@ -284,6 +274,8 @@ export interface ProviderDetail {
 }
 
 export async function getProviderById(id: string): Promise<ProviderDetail | null> {
+  await requireAuthUser()
+
   const profile = await prisma.providerProfile.findUnique({
     where: { id, deletedAt: null },
     select: {
@@ -365,4 +357,36 @@ export async function toggleAvailability(): Promise<void> {
   })
 
   revalidatePath('/provider/dashboard')
+}
+
+// --- Availability Hours ---
+
+export async function updateAvailabilityHours(
+  availableFrom: string,
+  availableTo: string,
+): Promise<void> {
+  const authUser = await requireAuthUser()
+  const profile = await requireProviderProfile(authUser.id)
+
+  // Validate HH:MM format
+  const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
+  if (!timeRegex.test(availableFrom) || !timeRegex.test(availableTo)) {
+    throw new Error('Invalid time format. Use HH:MM (24-hour).')
+  }
+
+  // Store times as DateTime using a fixed epoch date (time component only matters)
+  // Prisma @db.Time() stores only the time part; using 1970-01-01 as the date carrier.
+  const fromDate = new Date(`1970-01-01T${availableFrom}:00.000Z`)
+  const toDate = new Date(`1970-01-01T${availableTo}:00.000Z`)
+
+  await prisma.providerProfile.update({
+    where: { id: profile.id },
+    data: {
+      availableFrom: fromDate,
+      availableTo: toDate,
+    },
+  })
+
+  revalidatePath('/provider/dashboard')
+  revalidatePath('/provider/availability')
 }

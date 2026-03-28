@@ -13,6 +13,7 @@ import type {
   BookingTransitionResult,
 } from '@/types'
 
+// Public action — provider discovery data
 export async function getServiceCategories(): Promise<ServiceCategoryItem[]> {
   try {
     const categories = await prisma.serviceCategory.findMany({
@@ -37,7 +38,24 @@ export async function getServiceCategories(): Promise<ServiceCategoryItem[]> {
   }
 }
 
-export async function getProviders(categorySlug?: string): Promise<ProviderListItem[]> {
+interface GetProvidersFilters {
+  categorySlug?: string
+  search?: string
+  area?: string
+}
+
+// Public action — provider discovery data
+export async function getProviders(
+  categorySlugOrFilters?: string | GetProvidersFilters,
+): Promise<ProviderListItem[]> {
+  // Accept either the legacy positional string or the new filters object
+  const filters: GetProvidersFilters =
+    typeof categorySlugOrFilters === 'string'
+      ? { categorySlug: categorySlugOrFilters }
+      : (categorySlugOrFilters ?? {})
+
+  const { categorySlug, search, area } = filters
+
   try {
     const providers = await prisma.providerProfile.findMany({
       where: {
@@ -51,6 +69,17 @@ export async function getProviders(categorySlug?: string): Promise<ProviderListI
             },
           },
         }),
+        ...(search && {
+          OR: [
+            { displayName: { contains: search, mode: 'insensitive' } },
+            { bio: { contains: search, mode: 'insensitive' } },
+          ],
+        }),
+        ...(area && {
+          serviceAreas: {
+            some: { areaName: { contains: area, mode: 'insensitive' } },
+          },
+        }),
       },
       select: {
         id: true,
@@ -61,6 +90,8 @@ export async function getProviders(categorySlug?: string): Promise<ProviderListI
         ratingCount: true,
         completedBookings: true,
         isVerified: true,
+        availableFrom: true,
+        availableTo: true,
         user: {
           select: { fullName: true, phone: true },
         },
@@ -119,7 +150,19 @@ export async function createBooking(formData: FormData): Promise<void> {
 
   const provider = await prisma.providerProfile.findUnique({
     where: { id: providerId, deletedAt: null },
-    select: { userId: true },
+    select: {
+      userId: true,
+      serviceAreas: {
+        where: { city: 'Hyderabad' },
+        select: { id: true },
+        take: 1,
+      },
+      services: {
+        where: { categoryId, isActive: true },
+        select: { id: true },
+        take: 1,
+      },
+    },
   })
 
   if (!provider) {
@@ -128,6 +171,14 @@ export async function createBooking(formData: FormData): Promise<void> {
 
   if (provider.userId === authUser.id) {
     throw new Error('You cannot book yourself.')
+  }
+
+  if (provider.serviceAreas.length === 0) {
+    throw new Error('This provider does not operate in Hyderabad.')
+  }
+
+  if (provider.services.length === 0) {
+    throw new Error('This provider does not offer the selected service.')
   }
 
   const now = new Date()

@@ -42,6 +42,8 @@ export interface ProviderListItem {
   ratingCount: number
   completedBookings: number
   isVerified: boolean
+  availableFrom: Date | null
+  availableTo: Date | null
   user: {
     fullName: string
     phone: string | null

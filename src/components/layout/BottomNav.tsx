@@ -20,6 +20,10 @@ const NAV_ITEMS: NavItem[] = [
 export default function BottomNav() {
   const pathname = usePathname();
 
+  if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
+    return null;
+  }
+
   return (
     <nav
       aria-label="Main navigation"

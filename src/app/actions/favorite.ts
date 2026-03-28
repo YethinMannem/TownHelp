@@ -80,6 +80,8 @@ export async function getMyFavorites(): Promise<ProviderListItem[]> {
           ratingCount: true,
           completedBookings: true,
           isVerified: true,
+          availableFrom: true,
+          availableTo: true,
           user: {
             select: {
               fullName: true,
@@ -123,6 +125,8 @@ export async function getMyFavorites(): Promise<ProviderListItem[]> {
     ratingCount: p.ratingCount,
     completedBookings: p.completedBookings,
     isVerified: p.isVerified,
+    availableFrom: p.availableFrom,
+    availableTo: p.availableTo,
     user: p.user,
     services: p.services.map((s) => ({
       id: s.id,
