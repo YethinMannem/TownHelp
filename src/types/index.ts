@@ -1,7 +1,17 @@
-import type { BookingStatus, MessageType, NotificationType, RateType } from '@/generated/prisma'
+import type { BookingStatus, MessageType, NotificationType, PaymentStatus, RateType } from '@/generated/prisma'
 
 // Re-export Prisma enums for convenience
-export type { BookingStatus, MessageType, NotificationType, RateType } from '@/generated/prisma'
+export type { BookingStatus, MessageType, NotificationType, PaymentStatus, RateType } from '@/generated/prisma'
+
+// Re-export payment types
+export type {
+  CreatePaymentOrderRequest,
+  CreatePaymentOrderResponse,
+  VerifyPaymentRequest,
+  PaymentOrderResult,
+  PaymentVerifyResult,
+  BookingPaymentStatus,
+} from './payment'
 
 // --- Service Categories ---
 
@@ -74,6 +84,7 @@ export interface BookingActions {
   canComplete: boolean
   canCancel: boolean
   canDispute: boolean
+  awaitingPayment: boolean
 }
 
 export interface BookingTransitionResult {
@@ -103,6 +114,7 @@ export interface BookingAsRequester {
   }
   actions: BookingActions
   hasReview: boolean
+  paymentStatus: 'NONE' | PaymentStatus
 }
 
 export interface BookingAsProvider {
@@ -126,6 +138,7 @@ export interface BookingAsProvider {
     iconName: string | null
   }
   actions: BookingActions
+  paymentStatus: 'NONE' | PaymentStatus
 }
 
 export interface MyBookings {

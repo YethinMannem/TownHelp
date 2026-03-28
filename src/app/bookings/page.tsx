@@ -3,6 +3,7 @@ import Link from 'next/link'
 import type { BookingAsRequester, BookingAsProvider } from '@/types'
 import BookingActionButtons from './_components/BookingActionButtons'
 import ReviewButton from './_components/ReviewButton'
+import PaymentCheckout from '@/components/PaymentCheckout'
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
@@ -81,6 +82,22 @@ export default async function BookingsPage() {
                         <p className="mt-1 text-xs text-gray-500 italic">&quot;{booking.requesterNotes}&quot;</p>
                       )}
                       <BookingActionButtons bookingId={booking.id} actions={booking.actions} />
+                      {booking.status === 'COMPLETED' && booking.paymentStatus !== 'COMPLETED' && (booking.finalAmount || booking.quotedRate) && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <PaymentCheckout
+                            bookingId={booking.id}
+                            amount={booking.finalAmount ?? booking.quotedRate!}
+                            bookingNumber={booking.bookingNumber}
+                          />
+                        </div>
+                      )}
+                      {booking.paymentStatus === 'COMPLETED' && (
+                        <div className="mt-2">
+                          <span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700 font-medium">
+                            Paid
+                          </span>
+                        </div>
+                      )}
                       <ReviewButton
                         bookingId={booking.id}
                         hasReview={booking.hasReview}
@@ -127,6 +144,13 @@ export default async function BookingsPage() {
                         <p className="mt-1 text-xs text-gray-500">📍 {booking.serviceAddress}</p>
                       )}
                       <BookingActionButtons bookingId={booking.id} actions={booking.actions} />
+                      {booking.paymentStatus === 'COMPLETED' && (
+                        <div className="mt-2">
+                          <span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-700 font-medium">
+                            Paid
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
