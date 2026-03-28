@@ -1,6 +1,7 @@
 'use server'
 
 import { requireAuthUser } from '@/lib/auth'
+import { isValidUUID } from '@/lib/validation'
 import {
   getNotifications as fetchNotifications,
   markAsRead as markNotificationRead,
@@ -14,6 +15,7 @@ export async function getMyNotifications(cursor?: string): Promise<NotificationS
 }
 
 export async function readNotification(notificationId: string): Promise<void> {
+  if (!isValidUUID(notificationId)) return
   const user = await requireAuthUser()
   await markNotificationRead(user.id, notificationId)
 }

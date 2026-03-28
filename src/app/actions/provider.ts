@@ -36,8 +36,12 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
   const bio = formData.get('bio') as string
   const areaName = formData.get('areaName') as string
 
-  if (!displayName || !baseRate) {
-    throw new Error('Display name and base rate are required.')
+  if (!displayName?.trim() || isNaN(baseRate) || baseRate <= 0) {
+    throw new Error('Display name and a valid base rate are required.')
+  }
+
+  if (!areaName?.trim()) {
+    throw new Error('Service area is required so customers can find you.')
   }
 
   // Transactional: profile + service area succeed or fail together
@@ -58,17 +62,15 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
       select: { id: true },
     })
 
-    if (areaName?.trim()) {
-      await tx.serviceArea.create({
-        data: {
-          providerId: profile.id,
-          areaName: areaName.trim(),
-          city: 'Hyderabad',
-          state: 'Telangana',
-          isPrimary: true,
-        },
-      })
-    }
+    await tx.serviceArea.create({
+      data: {
+        providerId: profile.id,
+        areaName: areaName.trim(),
+        city: 'Hyderabad',
+        state: 'Telangana',
+        isPrimary: true,
+      },
+    })
   })
 
   redirect('/provider/add-service')
@@ -128,7 +130,7 @@ export async function updateProviderProfile(formData: FormData): Promise<void> {
   const bio = formData.get('bio') as string
   const isAvailable = formData.get('isAvailable') === 'true'
 
-  if (!displayName?.trim() || isNaN(baseRate) || baseRate < 0) {
+  if (!displayName?.trim() || isNaN(baseRate) || baseRate <= 0) {
     throw new Error('Display name and a valid base rate are required.')
   }
 
@@ -346,15 +348,11 @@ export async function toggleAvailability(): Promise<void> {
   const authUser = await requireAuthUser()
   const profile = await requireProviderProfile(authUser.id)
 
-  const current = await prisma.providerProfile.findUnique({
-    where: { id: profile.id },
-    select: { isAvailable: true },
-  })
-
-  await prisma.providerProfile.update({
-    where: { id: profile.id },
-    data: { isAvailable: !current?.isAvailable },
-  })
+  await prisma.$executeRaw`
+    UPDATE provider_profiles
+    SET is_available = NOT is_available, updated_at = NOW()
+    WHERE id = ${profile.id}::uuid
+  `
 
   revalidatePath('/provider/dashboard')
 }

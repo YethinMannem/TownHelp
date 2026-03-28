@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { requireAuthUser } from '@/lib/auth'
+import { isValidUUID } from '@/lib/validation'
 import type { ProviderListItem } from '@/types'
 
 /**
@@ -10,7 +11,18 @@ import type { ProviderListItem } from '@/types'
  * Returns true if now favorited, false if unfavorited.
  */
 export async function toggleFavorite(providerId: string): Promise<boolean> {
+  if (!isValidUUID(providerId)) return false
   const user = await requireAuthUser()
+
+  // Validate the provider exists and is active
+  const provider = await prisma.providerProfile.findUnique({
+    where: { id: providerId, deletedAt: null },
+    select: { id: true },
+  })
+
+  if (!provider) {
+    return false // Provider doesn't exist or was deleted
+  }
 
   const existing = await prisma.favorite.findUnique({
     where: {
@@ -29,12 +41,26 @@ export async function toggleFavorite(providerId: string): Promise<boolean> {
     return false
   }
 
-  await prisma.favorite.create({
-    data: {
-      userId: user.id,
-      providerId,
-    },
-  })
+  try {
+    await prisma.favorite.create({
+      data: {
+        userId: user.id,
+        providerId,
+      },
+    })
+  } catch (error: unknown) {
+    // Concurrent toggle — another request already created it
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error as { code: string }).code === 'P2002'
+    ) {
+      revalidatePath('/browse')
+      revalidatePath('/favorites')
+      return true // Already favorited
+    }
+    throw error
+  }
 
   revalidatePath('/browse')
   revalidatePath('/favorites')
@@ -45,6 +71,7 @@ export async function toggleFavorite(providerId: string): Promise<boolean> {
  * Check if the current user has favorited a specific provider.
  */
 export async function isFavorited(providerId: string): Promise<boolean> {
+  if (!isValidUUID(providerId)) return false
   const user = await requireAuthUser()
 
   const existing = await prisma.favorite.findUnique({
@@ -85,7 +112,6 @@ export async function getMyFavorites(): Promise<ProviderListItem[]> {
           user: {
             select: {
               fullName: true,
-              phone: true,
             },
           },
           services: {

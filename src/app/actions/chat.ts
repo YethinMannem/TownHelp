@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireAuthUser } from '@/lib/auth'
+import { isValidUUID } from '@/lib/validation'
+import { checkRateLimit } from '@/lib/rate-limit'
 import {
   getConversations as getConversationsService,
   getMessages as getMessagesService,
@@ -25,12 +27,19 @@ export async function getMessages(
   conversationId: string,
   cursor?: string
 ): Promise<{ messages: MessageItem[]; nextCursor: string | null }> {
+  if (!isValidUUID(conversationId)) return { messages: [], nextCursor: null }
   const authUser = await requireAuthUser()
 
   try {
     return await getMessagesService(conversationId, authUser.id, cursor)
   } catch (error) {
-    console.error('[getMessages]:', error)
+    if (error instanceof Error) {
+      if (error.message === 'NOT_A_PARTICIPANT') {
+        console.error('[getMessages]: unauthorized access attempt for', conversationId)
+      } else if (error.message !== 'CONVERSATION_NOT_FOUND') {
+        console.error('[getMessages]:', error)
+      }
+    }
     return { messages: [], nextCursor: null }
   }
 }
@@ -39,7 +48,14 @@ export async function sendMessage(
   conversationId: string,
   content: string
 ): Promise<SendMessageResult> {
+  if (!isValidUUID(conversationId)) return { success: false, error: 'Invalid conversation.' }
   const authUser = await requireAuthUser()
+
+  const { allowed } = checkRateLimit(`${authUser.id}:sendMessage`, {
+    maxRequests: 30,
+    windowMs: 60_000,
+  })
+  if (!allowed) return { success: false, error: 'Slow down — too many messages.' }
 
   const result = await sendMessageService(conversationId, authUser.id, content)
   if (result.success) {
@@ -51,6 +67,7 @@ export async function sendMessage(
 export async function markConversationAsRead(
   conversationId: string
 ): Promise<void> {
+  if (!isValidUUID(conversationId)) return
   const authUser = await requireAuthUser()
 
   try {

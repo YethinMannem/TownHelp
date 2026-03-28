@@ -5,6 +5,9 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { requireAuthUser } from '@/lib/auth'
 import { transitionBookingStatus, computeBookingActions } from '@/services/booking.service'
+import { confirmOfflinePayment } from '@/services/payment.service'
+import { isValidUUID } from '@/lib/validation'
+import { checkRateLimit } from '@/lib/rate-limit'
 import type {
   ServiceCategoryItem,
   ProviderListItem,
@@ -42,6 +45,8 @@ interface GetProvidersFilters {
   categorySlug?: string
   search?: string
   area?: string
+  page?: number
+  limit?: number
 }
 
 // Public action — provider discovery data
@@ -55,6 +60,10 @@ export async function getProviders(
       : (categorySlugOrFilters ?? {})
 
   const { categorySlug, search, area } = filters
+
+  const pageSize = Math.min(filters.limit ?? 20, 50) // Max 50 per page
+  const page = Math.max(filters.page ?? 1, 1)
+  const skip = (page - 1) * pageSize
 
   try {
     const providers = await prisma.providerProfile.findMany({
@@ -93,7 +102,7 @@ export async function getProviders(
         availableFrom: true,
         availableTo: true,
         user: {
-          select: { fullName: true, phone: true },
+          select: { fullName: true },
         },
         services: {
           where: {
@@ -116,6 +125,8 @@ export async function getProviders(
           select: { areaName: true, city: true },
         },
       },
+      take: pageSize,
+      skip,
       orderBy: { ratingAvg: 'desc' },
     })
 
@@ -138,13 +149,25 @@ export async function getProviders(
 export async function createBooking(formData: FormData): Promise<void> {
   const authUser = await requireAuthUser()
 
+  const { allowed } = checkRateLimit(`${authUser.id}:createBooking`, {
+    maxRequests: 5,
+    windowMs: 60_000,
+  })
+  if (!allowed) {
+    throw new Error('Too many booking requests. Please wait a moment.')
+  }
+
   const providerId = formData.get('providerId') as string
   const categoryId = formData.get('categoryId') as string
-  const serviceAddress = formData.get('serviceAddress') as string
-  const notes = formData.get('notes') as string
-  const quotedRate = parseFloat(formData.get('quotedRate') as string)
+  const rawAddress = (formData.get('serviceAddress') as string)?.trim() || ''
+  const rawNotes = (formData.get('notes') as string)?.trim() || ''
+  const rawRate = parseFloat(formData.get('quotedRate') as string)
 
-  if (!providerId || !categoryId) {
+  const serviceAddress = rawAddress.slice(0, 500)
+  const notes = rawNotes.slice(0, 1000)
+  const quotedRate = isNaN(rawRate) || rawRate < 0 ? NaN : rawRate
+
+  if (!isValidUUID(providerId) || !isValidUUID(categoryId)) {
     throw new Error('Provider and service category are required.')
   }
 
@@ -181,46 +204,65 @@ export async function createBooking(formData: FormData): Promise<void> {
     throw new Error('This provider does not offer the selected service.')
   }
 
-  const now = new Date()
-  const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
-  const uniqueId = crypto.randomUUID().slice(0, 8).toUpperCase()
-  const bookingNumber = `TH-${dateStr}-${uniqueId}`
+  // Retry on booking number collision (extremely unlikely but handled)
+  const MAX_RETRIES = 3
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const now = new Date()
+    const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
+    const uniqueId = crypto.randomUUID().slice(0, 8).toUpperCase()
+    const bookingNumber = `TH-${dateStr}-${uniqueId}`
 
-  // Transactional: booking + audit log + conversation succeed or fail together
-  await prisma.$transaction(async (tx) => {
-    const booking = await tx.booking.create({
-      data: {
-        bookingNumber,
-        requesterId: authUser.id,
-        providerId,
-        categoryId,
-        status: 'PENDING',
-        serviceAddress: serviceAddress?.trim() || null,
-        requesterNotes: notes?.trim() || null,
-        quotedRate: isNaN(quotedRate) ? null : quotedRate,
-      },
-      select: { id: true },
-    })
+    try {
+      // Transactional: booking + audit log + conversation succeed or fail together
+      await prisma.$transaction(async (tx) => {
+        const booking = await tx.booking.create({
+          data: {
+            bookingNumber,
+            requesterId: authUser.id,
+            providerId,
+            categoryId,
+            status: 'PENDING',
+            serviceAddress: serviceAddress || null,
+            requesterNotes: notes || null,
+            quotedRate: isNaN(quotedRate) ? null : quotedRate,
+          },
+          select: { id: true },
+        })
 
-    await tx.bookingStatusLog.create({
-      data: {
-        bookingId: booking.id,
-        fromStatus: 'PENDING',
-        toStatus: 'PENDING',
-        changedBy: authUser.id,
-        notes: 'Booking created by requester',
-      },
-    })
+        await tx.bookingStatusLog.create({
+          data: {
+            bookingId: booking.id,
+            fromStatus: 'PENDING',
+            toStatus: 'PENDING',
+            changedBy: authUser.id,
+            notes: 'Booking created',
+          },
+        })
 
-    // Create conversation so both parties can chat immediately
-    await tx.conversation.create({
-      data: {
-        bookingId: booking.id,
-        requesterId: authUser.id,
-        providerId,
-      },
-    })
-  })
+        // Create conversation so both parties can chat immediately
+        await tx.conversation.create({
+          data: {
+            bookingId: booking.id,
+            requesterId: authUser.id,
+            providerId,
+          },
+        })
+      })
+
+      // Success — break out of retry loop
+      break
+    } catch (error: unknown) {
+      const isUniqueViolation =
+        error instanceof Error &&
+        'code' in error &&
+        (error as { code: string }).code === 'P2002'
+
+      if (isUniqueViolation && attempt < MAX_RETRIES - 1) {
+        continue // Retry with new booking number
+      }
+      throw new Error('Failed to create booking. Please try again.')
+    }
+  }
 
   redirect('/bookings')
 }
@@ -325,6 +367,7 @@ export async function getMyBookings(): Promise<MyBookings> {
 // =============================================================================
 
 export async function confirmBooking(bookingId: string): Promise<BookingTransitionResult> {
+  if (!isValidUUID(bookingId)) return { success: false, error: 'Invalid booking ID.' }
   const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'CONFIRMED', userId)
   if (result.success) revalidatePath('/bookings')
@@ -332,6 +375,7 @@ export async function confirmBooking(bookingId: string): Promise<BookingTransiti
 }
 
 export async function rejectBooking(bookingId: string): Promise<BookingTransitionResult> {
+  if (!isValidUUID(bookingId)) return { success: false, error: 'Invalid booking ID.' }
   const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'CANCELLED', userId, {
     notes: 'Rejected by provider',
@@ -341,6 +385,7 @@ export async function rejectBooking(bookingId: string): Promise<BookingTransitio
 }
 
 export async function startBooking(bookingId: string): Promise<BookingTransitionResult> {
+  if (!isValidUUID(bookingId)) return { success: false, error: 'Invalid booking ID.' }
   const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'IN_PROGRESS', userId)
   if (result.success) revalidatePath('/bookings')
@@ -351,6 +396,7 @@ export async function completeBooking(
   bookingId: string,
   finalAmount?: number
 ): Promise<BookingTransitionResult> {
+  if (!isValidUUID(bookingId)) return { success: false, error: 'Invalid booking ID.' }
   const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'COMPLETED', userId, {
     finalAmount,
@@ -360,6 +406,7 @@ export async function completeBooking(
 }
 
 export async function disputeBooking(bookingId: string): Promise<BookingTransitionResult> {
+  if (!isValidUUID(bookingId)) return { success: false, error: 'Invalid booking ID.' }
   const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'DISPUTED', userId, {
     notes: 'Dispute opened by user',
@@ -369,10 +416,27 @@ export async function disputeBooking(bookingId: string): Promise<BookingTransiti
 }
 
 export async function cancelBooking(bookingId: string): Promise<BookingTransitionResult> {
+  if (!isValidUUID(bookingId)) return { success: false, error: 'Invalid booking ID.' }
   const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'CANCELLED', userId, {
     notes: 'Cancelled by user',
   })
+  if (result.success) revalidatePath('/bookings')
+  return result
+}
+
+export async function confirmPayment(
+  bookingId: string,
+  paymentMethod: 'CASH' | 'UPI' = 'CASH'
+): Promise<{ success: boolean; error?: string }> {
+  if (!isValidUUID(bookingId)) return { success: false, error: 'Invalid booking ID.' }
+  const { id: userId } = await requireAuthUser()
+  const { allowed } = checkRateLimit(`${userId}:confirmPayment`, {
+    maxRequests: 10,
+    windowMs: 60_000,
+  })
+  if (!allowed) return { success: false, error: 'Too many requests. Please wait.' }
+  const result = await confirmOfflinePayment(bookingId, userId, paymentMethod)
   if (result.success) revalidatePath('/bookings')
   return result
 }
