@@ -242,6 +242,7 @@ export async function getMyBookings(): Promise<MyBookings> {
     cancelledAt: true,
     requesterId: true,
     review: { select: { id: true } },
+    payment: { select: { status: true } },
     provider: {
       select: { userId: true },
     },
@@ -295,8 +296,9 @@ export async function getMyBookings(): Promise<MyBookings> {
       cancelledAt: b.cancelledAt,
       provider: { displayName: b.provider.displayName },
       category: b.category,
-      actions: computeBookingActions(b.status, authUser.id, b.requesterId, b.provider.userId),
+      actions: computeBookingActions(b.status, authUser.id, b.requesterId, b.provider.userId, b.payment?.status ?? undefined),
       hasReview: b.review !== null,
+      paymentStatus: b.payment?.status ?? 'NONE',
     })),
     asProvider: asProviderRaw.map((b) => ({
       id: b.id,
@@ -312,7 +314,8 @@ export async function getMyBookings(): Promise<MyBookings> {
       cancelledAt: b.cancelledAt,
       requester: b.requester,
       category: b.category,
-      actions: computeBookingActions(b.status, authUser.id, b.requesterId, b.provider.userId),
+      actions: computeBookingActions(b.status, authUser.id, b.requesterId, b.provider.userId, b.payment?.status ?? undefined),
+      paymentStatus: b.payment?.status ?? 'NONE',
     })),
   }
 }

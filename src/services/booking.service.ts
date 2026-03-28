@@ -96,7 +96,7 @@ export async function transitionBookingStatus(
   userId: string,
   options?: { notes?: string; finalAmount?: number }
 ): Promise<BookingTransitionResult> {
-  // 1. Fetch booking with ownership info
+  // 1. Fetch booking with ownership info + payment status
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: {
@@ -108,6 +108,7 @@ export async function transitionBookingStatus(
       quotedRate: true,
       finalAmount: true,
       provider: { select: { userId: true } },
+      payment: { select: { status: true } },
     },
   })
 
@@ -187,26 +188,8 @@ export async function transitionBookingStatus(
         data: { completedBookings: { increment: 1 } },
       })
 
-      // Create a CASH payment record — finalAmount takes precedence over quotedRate
-      const paymentAmount =
-        options?.finalAmount != null
-          ? options.finalAmount
-          : booking.finalAmount != null
-            ? Number(booking.finalAmount)
-            : booking.quotedRate != null
-              ? Number(booking.quotedRate)
-              : 0
-
-      await tx.payment.create({
-        data: {
-          bookingId,
-          idempotencyKey: `cash-${bookingId}`,
-          amount: paymentAmount,
-          paymentMethod: 'CASH',
-          status: 'COMPLETED',
-          paidAt: now,
-        },
-      })
+      // Payment happens after completion — no auto-creation here.
+      // Requester pays via Razorpay after service is done.
     }
 
     return { success: true as const }
@@ -256,7 +239,8 @@ export function computeBookingActions(
   status: BookingStatus,
   userId: string,
   requesterId: string,
-  providerUserId: string
+  providerUserId: string,
+  paymentStatus?: string
 ): {
   canConfirm: boolean
   canReject: boolean
@@ -264,9 +248,11 @@ export function computeBookingActions(
   canComplete: boolean
   canCancel: boolean
   canDispute: boolean
+  awaitingPayment: boolean
 } {
   const isRequester = userId === requesterId
   const isProvider = userId === providerUserId
+  const isPaid = paymentStatus === 'COMPLETED'
 
   if (!isRequester && !isProvider) {
     return {
@@ -276,8 +262,12 @@ export function computeBookingActions(
       canComplete: false,
       canCancel: false,
       canDispute: false,
+      awaitingPayment: false,
     }
   }
+
+  // Requester sees "awaiting payment" after service is completed but not yet paid
+  const awaitingPayment = isRequester && status === 'COMPLETED' && !isPaid
 
   return {
     canConfirm: isProvider && status === 'PENDING',
@@ -290,5 +280,6 @@ export function computeBookingActions(
     canDispute:
       (status === 'IN_PROGRESS' && (isRequester || isProvider)) ||
       (status === 'COMPLETED' && (isRequester || isProvider)),
+    awaitingPayment,
   }
 }

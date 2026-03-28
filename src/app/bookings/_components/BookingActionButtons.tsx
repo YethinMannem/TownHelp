@@ -97,6 +97,11 @@ export default function BookingActionButtons({ bookingId, actions }: BookingActi
           Dispute
         </button>
       )}
+      {actions.awaitingPayment && (
+        <span className="text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700 font-medium self-center">
+          Awaiting payment from requester
+        </span>
+      )}
       {isPending && <span className="text-xs text-gray-400 self-center">Updating...</span>}
     </div>
   )
