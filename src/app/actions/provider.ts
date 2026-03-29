@@ -388,3 +388,136 @@ export async function updateAvailabilityHours(
   revalidatePath('/provider/dashboard')
   revalidatePath('/provider/availability')
 }
+
+// =============================================================================
+// Weekly Availability Schedule
+// =============================================================================
+
+interface AvailabilitySlotInput {
+  dayOfWeek: number
+  startTime: string   // "HH:MM" 24-hour
+  endTime: string     // "HH:MM" 24-hour
+  isActive: boolean
+}
+
+export async function setWeeklyAvailability(
+  slots: AvailabilitySlotInput[]
+): Promise<{ success: boolean; error?: string }> {
+  const authUser = await requireAuthUser()
+  const profile = await requireProviderProfile(authUser.id)
+
+  const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/
+
+  // Validate all slots
+  for (const slot of slots) {
+    if (slot.dayOfWeek < 0 || slot.dayOfWeek > 6 || !Number.isInteger(slot.dayOfWeek)) {
+      return { success: false, error: `Invalid day of week: ${slot.dayOfWeek}` }
+    }
+    if (!timeRegex.test(slot.startTime) || !timeRegex.test(slot.endTime)) {
+      return { success: false, error: 'Invalid time format. Use HH:MM (24-hour).' }
+    }
+    if (slot.isActive && slot.startTime >= slot.endTime) {
+      return { success: false, error: `Start time must be before end time for day ${slot.dayOfWeek}.` }
+    }
+  }
+
+  // Check for duplicate days
+  const days = slots.map((s) => s.dayOfWeek)
+  if (new Set(days).size !== days.length) {
+    return { success: false, error: 'Duplicate days in schedule.' }
+  }
+
+  try {
+    // Atomic replace: delete existing + create new in one transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.providerAvailability.deleteMany({
+        where: { providerId: profile.id },
+      })
+
+      if (slots.length > 0) {
+        await tx.providerAvailability.createMany({
+          data: slots.map((slot) => ({
+            providerId: profile.id,
+            dayOfWeek: slot.dayOfWeek,
+            startTime: new Date(`1970-01-01T${slot.startTime}:00.000Z`),
+            endTime: new Date(`1970-01-01T${slot.endTime}:00.000Z`),
+            isActive: slot.isActive,
+          })),
+        })
+      }
+    })
+
+    revalidatePath('/provider/dashboard')
+    revalidatePath('/provider/availability')
+
+    return { success: true }
+  } catch (error) {
+    console.error('[setWeeklyAvailability]:', error)
+    return { success: false, error: 'Failed to update schedule. Please try again.' }
+  }
+}
+
+const DAY_NAMES = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday',
+  'Thursday', 'Friday', 'Saturday',
+] as const
+
+interface AvailabilitySlotResponse {
+  dayOfWeek: number
+  dayName: string
+  startTime: string
+  endTime: string
+  isActive: boolean
+}
+
+export async function getWeeklyAvailability(
+  providerId?: string
+): Promise<{ slots: AvailabilitySlotResponse[] }> {
+  let profileId = providerId
+
+  if (!profileId) {
+    const authUser = await requireAuthUser()
+    const profile = await requireProviderProfile(authUser.id)
+    profileId = profile.id
+  }
+
+  const rows = await prisma.providerAvailability.findMany({
+    where: { providerId: profileId },
+    orderBy: { dayOfWeek: 'asc' },
+  })
+
+  // Build full 7-day schedule, filling in missing days as inactive
+  const slots: AvailabilitySlotResponse[] = []
+
+  for (let day = 0; day < 7; day++) {
+    const existing = rows.find((r) => r.dayOfWeek === day)
+
+    if (existing) {
+      // Extract HH:MM from the stored Time value
+      const start = existing.startTime instanceof Date
+        ? existing.startTime.toISOString().slice(11, 16)
+        : '09:00'
+      const end = existing.endTime instanceof Date
+        ? existing.endTime.toISOString().slice(11, 16)
+        : '17:00'
+
+      slots.push({
+        dayOfWeek: day,
+        dayName: DAY_NAMES[day],
+        startTime: start,
+        endTime: end,
+        isActive: existing.isActive,
+      })
+    } else {
+      slots.push({
+        dayOfWeek: day,
+        dayName: DAY_NAMES[day],
+        startTime: '09:00',
+        endTime: '17:00',
+        isActive: false,
+      })
+    }
+  }
+
+  return { slots }
+}

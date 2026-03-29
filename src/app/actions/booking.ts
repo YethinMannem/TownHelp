@@ -8,12 +8,14 @@ import { transitionBookingStatus, computeBookingActions } from '@/services/booki
 import { confirmOfflinePayment } from '@/services/payment.service'
 import { isValidUUID } from '@/lib/validation'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getProviderDashboardStats as fetchDashboardStats } from '@/services/dashboard.service'
 import type {
   ServiceCategoryItem,
   ProviderListItem,
   ProviderDashboard,
   MyBookings,
   BookingTransitionResult,
+  ProviderDashboardStats,
 } from '@/types'
 
 // Public action — provider discovery data
@@ -439,6 +441,23 @@ export async function confirmPayment(
   const result = await confirmOfflinePayment(bookingId, userId, paymentMethod)
   if (result.success) revalidatePath('/bookings')
   return result
+}
+
+// =============================================================================
+// Provider Dashboard Stats
+// =============================================================================
+
+export async function getProviderDashboard(): Promise<ProviderDashboardStats | null> {
+  const authUser = await requireAuthUser()
+
+  const profile = await prisma.providerProfile.findUnique({
+    where: { userId: authUser.id, deletedAt: null },
+    select: { id: true },
+  })
+
+  if (!profile) return null
+
+  return fetchDashboardStats(profile.id)
 }
 
 // =============================================================================

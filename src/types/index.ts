@@ -221,3 +221,74 @@ export interface NotificationSummary {
   notifications: NotificationItem[]
   unreadCount: number
 }
+
+// --- Provider Photos ---
+
+export interface ProviderPhotoItem {
+  id: string
+  url: string
+  caption: string | null
+  sortOrder: number
+  createdAt: Date
+}
+
+export interface UploadPhotoResult {
+  success: boolean
+  error?: string
+  photo?: ProviderPhotoItem
+}
+
+// --- Weekly Availability ---
+
+export const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const
+
+export interface AvailabilitySlot {
+  dayOfWeek: number
+  dayName: string
+  startTime: string    // "HH:MM" 24-hour format
+  endTime: string      // "HH:MM" 24-hour format
+  isActive: boolean
+}
+
+export interface WeeklyAvailability {
+  slots: AvailabilitySlot[]
+}
+
+export interface SetAvailabilityResult {
+  success: boolean
+  error?: string
+}
+
+// --- Provider Dashboard Stats ---
+
+export interface ProviderDashboardStats {
+  bookingsThisMonth: number
+  bookingsTotal: number
+  earningsThisMonth: number
+  earningsTotal: number
+  averageRating: number
+  totalReviews: number
+  completionRate: number
+  pendingRequests: number
+  todaySchedule: TodayBookingItem[]
+}
+
+export interface TodayBookingItem {
+  id: string
+  bookingNumber: string
+  status: string
+  scheduledStart: Date | null
+  serviceAddress: string | null
+  requesterNotes: string | null
+  requesterName: string
+  categoryName: string
+  categoryIcon: string | null
+}
