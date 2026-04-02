@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Star, MapPin } from 'lucide-react'
 import { requireAuthUser } from '@/lib/auth'
@@ -17,7 +17,7 @@ const AVATAR_COLORS = [
   'bg-secondary-fixed text-on-secondary-fixed',
   'bg-tertiary-fixed text-on-tertiary-fixed',
   'bg-error-container text-on-error-container',
-  'bg-[#cde5ff] text-[#073452]',
+  'bg-tertiary-fixed text-on-tertiary-fixed',
 ] as const
 
 function getAvatarColor(name: string): string {
@@ -54,7 +54,12 @@ interface ProviderPageProps {
 }
 
 export default async function ProviderPage({ params }: ProviderPageProps) {
-  await requireAuthUser()
+  try {
+    await requireAuthUser()
+  } catch (error) {
+    console.error('[ProviderPage] Auth check failed:', error)
+    redirect('/welcome')
+  }
 
   const { id } = await params
   const provider = await getProviderById(id)
@@ -122,6 +127,7 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
             {/* Rating row */}
             <div className="flex items-center gap-4 mt-3">
               <div className="flex items-center gap-1">
+                {/* Amber is intentional for star ratings — consistent with ProviderCard */}
                 <Star className="w-4 h-4 fill-[#f59e0b] text-[#f59e0b]" />
                 <span className="text-sm font-semibold text-on-surface">
                   {rating.toFixed(1)}
