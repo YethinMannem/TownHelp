@@ -12,7 +12,8 @@ export default async function HomePage() {
   try {
     const { data } = await supabase.auth.getUser()
     user = data.user
-  } catch {
+  } catch (error) {
+    console.error('[HomePage] Failed to get user:', error)
     redirect('/welcome')
   }
 
