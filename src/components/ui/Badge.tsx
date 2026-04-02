@@ -1,3 +1,4 @@
+import type { HTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 
 export type BadgeVariant =
@@ -9,7 +10,7 @@ export type BadgeVariant =
   | 'cancelled'
   | 'info'
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant
 }
 
@@ -23,7 +24,7 @@ const variantClasses: Record<BadgeVariant, string> = {
   'in-progress':
     'bg-[#ede9fe] text-[#4c1d95]',
   completed:
-    'bg-primary-fixed text-on-primary-fixed',
+    'bg-primary-fixed-dim text-on-primary-container',
   cancelled:
     'bg-error-container text-on-error-container',
   info:

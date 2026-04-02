@@ -1,8 +1,9 @@
+import type { HTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 
 export type CardVariant = 'default' | 'elevated' | 'flat'
 
-export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: CardVariant
 }
 
