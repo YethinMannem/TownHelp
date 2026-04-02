@@ -1,26 +1,62 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* ── Primary (Forest Green) ── */
+  --color-primary: #4e644f;
+  --color-primary-fixed: #d0e9ce;
+  --color-primary-fixed-dim: #b4cdb3;
+  --color-primary-container: #88a088;
+  --color-on-primary: #ffffff;
+  --color-on-primary-fixed: #0b200f;
+  --color-on-primary-container: #223724;
+
+  /* ── Secondary (Warm Brown) ── */
+  --color-secondary: #6a5c4e;
+  --color-secondary-fixed: #f3dfce;
+  --color-secondary-fixed-dim: #dfc5ae;
+  --color-secondary-container: #9e8878;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-fixed: #261a0d;
+  --color-on-secondary-container: #3a2c1f;
+
+  /* ── Tertiary (Steel Blue) ── */
+  --color-tertiary: #3d6282;
+  --color-tertiary-fixed: #cde5ff;
+  --color-tertiary-fixed-dim: #aecce8;
+  --color-tertiary-container: #6b96b8;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-fixed: #073452;
+  --color-on-tertiary-container: #1a4a6b;
+
+  /* ── Error ── */
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #410002;
+
+  /* ── Surface & Background ── */
+  --color-surface: #fbf9f7;
+  --color-surface-variant: #dde5d9;
+  --color-surface-container: #f0eeeb;
+  --color-surface-container-low: #f5f3f0;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #eae8e5;
+  --color-surface-container-highest: #e4e2df;
+
+  /* ── On-Surface ── */
+  --color-on-surface: #1b1c1b;
+  --color-on-surface-variant: #424940;
+
+  /* ── Outline ── */
+  --color-outline: #727970;
+  --color-outline-variant: #c2c9be;
+
+  /* ── Typography ── */
+  --font-headline: var(--font-plus-jakarta-sans), sans-serif;
+  --font-body: var(--font-be-vietnam-pro), sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Brand gradient utility */
+.bg-brand-gradient {
+  background: linear-gradient(135deg, #4e644f 0%, #88a088 100%);
 }
