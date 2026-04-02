@@ -43,6 +43,10 @@ export default function LoginForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
+  function getRedirectPath(): string {
+    return searchParams.get('role') === 'provider' ? '/provider/dashboard' : '/'
+  }
+
   const authError = searchParams.get('error')
   const isLoading = formState.kind === 'loading'
   const showForm = formState.kind !== 'verify' && formState.kind !== 'resent'
@@ -74,7 +78,7 @@ export default function LoginForm() {
           setFormState({ kind: 'error', message: 'Account created but setup failed. Please try signing in again.' })
           return
         }
-        router.push('/')
+        router.push(getRedirectPath())
       }
     } else {
       const { data, error } = await authService.signIn(trimmedEmail, password)
@@ -92,7 +96,7 @@ export default function LoginForm() {
           setFormState({ kind: 'error', message: 'Sign in succeeded but account sync failed. Please try again.' })
           return
         }
-        router.push('/')
+        router.push(getRedirectPath())
       }
     }
   }
