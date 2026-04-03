@@ -52,8 +52,8 @@ export default async function ProviderDashboard() {
             <span
               className={`shrink-0 flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-body font-medium ${
                 profile.isVerified
-                  ? 'bg-[#d4edda] text-[#1a5c2a]'
-                  : 'bg-[#fff3cd] text-[#7c5c00]'
+                  ? 'bg-primary-fixed text-on-primary-fixed'
+                  : 'bg-secondary-fixed text-on-secondary-fixed'
               }`}
             >
               {profile.isVerified
