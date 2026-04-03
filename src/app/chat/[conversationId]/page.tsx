@@ -6,6 +6,18 @@ import MessageInput from '@/components/chat/MessageInput'
 import ChatMessages from './ChatMessages'
 import type { ConversationItem } from '@/types'
 
+const AVATAR_COLORS = [
+  'bg-primary-fixed text-on-primary-fixed',
+  'bg-secondary-fixed text-on-secondary-fixed',
+  'bg-tertiary-fixed text-on-tertiary-fixed',
+  'bg-error-container text-on-error-container',
+  'bg-[#cde5ff] text-[#073452]',
+] as const
+
+function getAvatarColor(name: string): string {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
+}
+
 export default async function ConversationPage({
   params,
 }: {
@@ -29,12 +41,12 @@ export default async function ConversationPage({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 sticky top-0 z-10 shrink-0">
+    <div className="flex flex-col h-screen bg-surface">
+      {/* Fixed header */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center gap-3 shrink-0">
         <Link
           href="/chat"
-          className="text-blue-600 hover:text-blue-700 p-1 -ml-1"
+          className="text-primary p-1 -ml-1"
           aria-label="Back to messages"
         >
           <svg
@@ -52,26 +64,29 @@ export default async function ConversationPage({
           </svg>
         </Link>
 
-        <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center shrink-0 text-sm">
+        <div
+          className={`w-9 h-9 rounded-full font-bold flex items-center justify-center shrink-0 text-sm ${getAvatarColor(conversation.otherPartyName)}`}
+          aria-hidden="true"
+        >
           {conversation.otherPartyName.charAt(0).toUpperCase()}
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900 text-sm truncate">
+          <p className="font-semibold text-on-surface text-sm truncate">
             {conversation.otherPartyName}
           </p>
-          <p className="text-xs text-gray-500 truncate">
+          <p className="text-xs text-on-surface-variant truncate">
             {conversation.categoryName} &middot; #{conversation.bookingNumber}
           </p>
         </div>
 
-        <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium capitalize">
+        <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-medium capitalize">
           {conversation.bookingStatus.toLowerCase().replace('_', ' ')}
         </span>
       </header>
 
-      {/* Message list */}
-      <main className="flex-1 overflow-y-auto px-4 py-4">
+      {/* Message list — offset below fixed header, above fixed input */}
+      <main className="flex-1 overflow-y-auto px-4 pt-14 pb-28">
         <ChatMessages
           conversationId={conversationId}
           initialMessages={messages}
@@ -79,8 +94,8 @@ export default async function ConversationPage({
         />
       </main>
 
-      {/* Message input */}
-      <div className="shrink-0">
+      {/* Fixed message input */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 shrink-0">
         <MessageInput conversationId={conversationId} />
       </div>
     </div>
