@@ -111,7 +111,8 @@ export async function transitionBookingStatus(
   })
 
   if (!booking) {
-    return { success: false, error: 'Booking not found.' }
+    console.error(`[transitionBookingStatus] Booking not found: ${bookingId}`)
+    return { success: false, error: 'This booking no longer exists. It may have been deleted.' }
   }
 
   const currentStatus = booking.status
@@ -119,9 +120,19 @@ export async function transitionBookingStatus(
   // 2. Validate transition is allowed
   const allowed = VALID_TRANSITIONS[currentStatus]
   if (!allowed.includes(toStatus)) {
+    // User-friendly messages for common invalid transitions
+    const friendlyStatus: Record<string, string> = {
+      PENDING: 'pending',
+      CONFIRMED: 'confirmed',
+      IN_PROGRESS: 'in progress',
+      COMPLETED: 'completed',
+      CANCELLED: 'cancelled',
+      DISPUTED: 'disputed',
+    }
+    console.error(`[transitionBookingStatus] Invalid transition ${currentStatus}→${toStatus} for booking ${bookingId}`)
     return {
       success: false,
-      error: `Cannot transition from ${currentStatus} to ${toStatus}.`,
+      error: `This booking is currently ${friendlyStatus[currentStatus] ?? currentStatus.toLowerCase()} and cannot be updated to ${friendlyStatus[toStatus] ?? toStatus.toLowerCase()}.`,
     }
   }
 
@@ -133,15 +144,16 @@ export async function transitionBookingStatus(
   const isProvider = booking.provider.userId === userId
 
   if (!isRequester && !isProvider) {
+    console.error(`[transitionBookingStatus] User ${userId} is not part of booking ${bookingId}`)
     return { success: false, error: 'You are not part of this booking.' }
   }
 
   if (requiredRole === 'provider' && !isProvider) {
-    return { success: false, error: 'Only the provider can perform this action.' }
+    return { success: false, error: 'Only the service provider can perform this action.' }
   }
 
   if (requiredRole === 'requester' && !isRequester) {
-    return { success: false, error: 'Only the requester can perform this action.' }
+    return { success: false, error: 'Only the person who made the booking can perform this action.' }
   }
 
   // 4. Build update data

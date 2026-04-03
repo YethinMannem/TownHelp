@@ -16,27 +16,31 @@ export async function GET(request: Request) {
     const code = searchParams.get('code')
     const next = safeRedirectPath(searchParams.get('next'))
 
-    if (code) {
-      const supabase = await createClient()
-      const { error } = await supabase.auth.exchangeCodeForSession(code)
-
-      if (error) {
-        console.error('exchangeCodeForSession failed:', error.message)
-        return NextResponse.redirect(`${origin}/login?error=auth_failed`)
-      }
-
-      const syncResult = await syncUserOnLogin()
-      if (!syncResult.success) {
-        console.error('User sync failed in callback:', syncResult.error)
-        return NextResponse.redirect(`${origin}/login?error=sync_failed`)
-      }
-
-      return NextResponse.redirect(`${origin}${next}`)
+    if (!code) {
+      console.error('[auth/callback] No code parameter in callback URL')
+      return NextResponse.redirect(`${origin}/login?error=missing_code`)
     }
 
-    return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+    const supabase = await createClient()
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (error) {
+      // Supabase returns specific messages we can map to user-friendly errors
+      const isExpired = error.message.includes('expired') || error.message.includes('invalid')
+      const errorType = isExpired ? 'link_expired' : 'exchange_failed'
+      console.error(`[auth/callback] exchangeCodeForSession failed (${errorType}):`, error.message)
+      return NextResponse.redirect(`${origin}/login?error=${errorType}`)
+    }
+
+    const syncResult = await syncUserOnLogin()
+    if (!syncResult.success) {
+      console.error('[auth/callback] User sync to public.users failed:', syncResult.error)
+      return NextResponse.redirect(`${origin}/login?error=sync_failed`)
+    }
+
+    return NextResponse.redirect(`${origin}${next}`)
   } catch (error) {
-    console.error('Auth callback error:', error)
-    return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+    console.error('[auth/callback] Unexpected error during auth callback:', error)
+    return NextResponse.redirect(`${origin}/login?error=unexpected`)
   }
 }

@@ -15,6 +15,9 @@ function getFriendlyError(message: string): string {
   if (message.includes('User already registered')) {
     return 'An account with this email already exists. Try signing in instead.'
   }
+  if (message.includes('Email not confirmed')) {
+    return 'Your email is not verified yet. Please check your inbox or resend the verification email below.'
+  }
   if (message.includes('Password should be at least')) {
     return 'Password must be at least 6 characters.'
   }
@@ -69,8 +72,17 @@ export default function LoginForm() {
       if (error) {
         setFormState({ kind: 'error', message: getFriendlyError(error.message) })
       } else if (data.user && !data.session) {
-        // Standard flow: email confirmation required
-        setFormState({ kind: 'verify', email: trimmedEmail })
+        // Supabase returns a user with empty identities when the email
+        // is already registered. No confirmation email is sent in this case.
+        if (!data.user.identities || data.user.identities.length === 0) {
+          setFormState({
+            kind: 'error',
+            message: 'An account with this email already exists. Try signing in, or use "Resend verification" if you haven\'t verified yet.',
+          })
+        } else {
+          // Genuine new signup — email confirmation sent
+          setFormState({ kind: 'verify', email: trimmedEmail })
+        }
       } else if (data.session) {
         // Edge case: confirmation disabled in Supabase dashboard
         const syncResult = await syncUserOnLogin()
@@ -178,9 +190,15 @@ export default function LoginForm() {
     <>
       {authError && formState.kind === 'idle' && (
         <div className="p-4 rounded-lg text-sm text-center bg-red-50 text-red-700 border border-red-200">
-          {authError === 'auth_failed'
-            ? 'Sign in failed. The link may have expired — please try again.'
-            : 'Something went wrong. Please try again.'}
+          {authError === 'link_expired'
+            ? 'Your verification link has expired. Please sign up again or resend the verification email.'
+            : authError === 'exchange_failed'
+            ? 'We couldn\'t verify your email link. It may have already been used. Try signing in with your password.'
+            : authError === 'sync_failed'
+            ? 'Your account was verified but we couldn\'t set up your profile. Please try signing in again.'
+            : authError === 'missing_code'
+            ? 'Invalid verification link. Please use the latest link from your email.'
+            : 'Something went wrong during sign in. Please try again.'}
         </div>
       )}
 
@@ -273,6 +291,15 @@ export default function LoginForm() {
       {formState.kind === 'error' && (
         <div className="p-4 rounded-lg text-sm text-center bg-red-50 text-red-700 border border-red-200">
           <p>{formState.message}</p>
+          {(formState.message.includes('already exists') || formState.message.includes('not verified')) && email.trim() && (
+            <button
+              type="button"
+              onClick={() => setFormState({ kind: 'verify', email: email.trim().toLowerCase() })}
+              className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              Resend verification email
+            </button>
+          )}
         </div>
       )}
     </>

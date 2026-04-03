@@ -191,19 +191,23 @@ export async function createBooking(formData: FormData): Promise<void> {
   })
 
   if (!provider) {
-    throw new Error('Provider not found.')
+    console.error(`[createBooking] Provider not found: ${providerId}`)
+    throw new Error('This provider is no longer available. They may have deactivated their profile.')
   }
 
   if (provider.userId === authUser.id) {
-    throw new Error('You cannot book yourself.')
+    console.error(`[createBooking] Self-booking attempt by user ${authUser.id}`)
+    throw new Error('You cannot book yourself. Please select a different provider.')
   }
 
   if (provider.serviceAreas.length === 0) {
-    throw new Error('This provider does not operate in Hyderabad.')
+    console.error(`[createBooking] Provider ${providerId} has no Hyderabad service areas`)
+    throw new Error('This provider does not currently serve the Hyderabad area.')
   }
 
   if (provider.services.length === 0) {
-    throw new Error('This provider does not offer the selected service.')
+    console.error(`[createBooking] Provider ${providerId} does not offer category ${categoryId}`)
+    throw new Error('This provider does not offer the service you selected. They may have updated their services.')
   }
 
   // Retry on booking number collision (extremely unlikely but handled)
