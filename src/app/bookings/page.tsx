@@ -1,5 +1,6 @@
 import { getMyBookings } from '@/app/actions/booking'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import type { BookingAsRequester, BookingAsProvider } from '@/types'
 import BookingActionButtons from './_components/BookingActionButtons'
 import ReviewButton from './_components/ReviewButton'
@@ -7,6 +8,7 @@ import PaymentCheckout from '@/components/PaymentCheckout'
 import { Badge } from '@/components/ui/Badge'
 import type { BadgeVariant } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { createClient } from '@/lib/supabase/server'
 
 const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
   PENDING: 'pending',
@@ -18,6 +20,17 @@ const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
 }
 
 export default async function BookingsPage() {
+  const supabase = await createClient()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch (error) {
+    console.error('[BookingsPage] Auth error:', error)
+    redirect('/welcome')
+  }
+  if (!user) redirect('/welcome')
+
   const { asRequester, asProvider } = await getMyBookings()
   const hasBookings = asRequester.length > 0 || asProvider.length > 0
 
