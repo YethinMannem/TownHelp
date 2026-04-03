@@ -1,199 +1,103 @@
-import { getServiceCategories, getProviders } from '@/app/actions/booking'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { getProviders } from '@/app/actions/booking'
+import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import BookButton from './BookButton'
-import SearchFilters from './SearchFilters'
-import { CATEGORY_ICONS } from '@/lib/constants'
-import type { ServiceCategoryItem, ProviderListItem, ProviderServiceItem } from '@/types'
+import { ProviderCard } from '@/components/ui/ProviderCard'
 
-function formatTime(date: Date | null): string | null {
-  if (!date) return null
-  // availableFrom/availableTo are stored as TIME in Postgres; Prisma returns
-  // them as Date objects with an arbitrary epoch date — only the time part matters.
-  return new Date(date).toLocaleTimeString('en-IN', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: 'UTC', // TIME columns have no timezone offset
-  })
-}
-
-function buildCategoryHref(
-  slug: string,
-  search: string | undefined,
-  area: string | undefined,
-): string {
-  const params = new URLSearchParams()
-  params.set('category', slug)
-  if (search) params.set('search', search)
-  if (area) params.set('area', area)
-  return `/browse?${params.toString()}`
-}
-
-function buildAllHref(
-  search: string | undefined,
-  area: string | undefined,
-): string {
-  const params = new URLSearchParams()
-  if (search) params.set('search', search)
-  if (area) params.set('area', area)
-  const qs = params.toString()
-  return qs ? `/browse?${qs}` : '/browse'
-}
-
-export default async function BrowsePage({
-  searchParams,
-}: {
+interface BrowsePageProps {
   searchParams: Promise<{ category?: string; search?: string; area?: string }>
-}) {
-  const params = await searchParams
-  const categorySlug = params.category || undefined
-  const search = params.search?.trim() || undefined
-  const area = params.area?.trim() || undefined
+}
 
-  const [categories, providers] = await Promise.all([
-    getServiceCategories(),
-    getProviders({ categorySlug, search, area }),
-  ])
+export default async function BrowsePage({ searchParams }: BrowsePageProps) {
+  const supabase = await createClient()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch (error) {
+    console.error('[BrowsePage] Auth error:', error)
+    redirect('/welcome')
+  }
+  if (!user) redirect('/welcome')
+
+  const { category, search, area } = await searchParams
+
+  const providers = await getProviders({
+    categorySlug: category,
+    search: search?.trim(),
+    area: area?.trim(),
+    limit: 20,
+  })
+
+  const categoryLabel = category
+    ? category
+        .split('-')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ')
+    : 'All Services'
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <Link href="/" className="text-sm text-blue-600 hover:underline">
-          &larr; Back to Home
+    <div className="min-h-screen bg-surface pb-28">
+      {/* Sticky page header */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center gap-3">
+        <Link
+          href="/"
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors"
+          aria-label="Back to home"
+        >
+          <ArrowLeft className="w-5 h-5 text-on-surface" />
         </Link>
-
-        <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-2">
-          Find a Service Provider
+        <h1 className="font-headline font-bold text-base text-on-surface">
+          {categoryLabel}
         </h1>
-        <p className="text-gray-600 mb-6">
-          Browse available providers in Hyderabad
-        </p>
+      </header>
 
-        <SearchFilters
-          categorySlug={categorySlug}
-          currentSearch={search}
-          currentArea={area}
-        />
-
+      <div className="pt-16 px-4 py-6">
         {/* Active filter summary */}
         {(search || area) && (
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-on-surface-variant font-body mb-4">
             Showing results
-            {search && <> for &ldquo;<span className="font-medium text-gray-700">{search}</span>&rdquo;</>}
-            {area && <> in <span className="font-medium text-gray-700">{area}</span></>}
+            {search && (
+              <>
+                {' '}for &ldquo;<span className="font-medium text-on-surface">{search}</span>&rdquo;
+              </>
+            )}
+            {area && (
+              <>
+                {' '}in <span className="font-medium text-on-surface">{area}</span>
+              </>
+            )}
           </p>
         )}
 
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
-          <Link
-            href={buildAllHref(search, area)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              !categorySlug
-                ? 'bg-blue-600 text-white'
-                : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            All
-          </Link>
-          {categories.map((cat: ServiceCategoryItem) => (
-            <Link
-              key={cat.slug}
-              href={buildCategoryHref(cat.slug, search, area)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                categorySlug === cat.slug
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              {CATEGORY_ICONS[cat.slug] || '📋'} {cat.name}
-            </Link>
-          ))}
-        </div>
-
-        {(!providers || providers.length === 0) ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <p className="text-gray-500 text-lg mb-2">No providers found</p>
-            <p className="text-gray-400 text-sm">
-              {categorySlug || search || area
-                ? 'Try adjusting your filters or check back later.'
-                : 'Be the first to offer services!'}
+        {providers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center mb-4">
+              <ArrowLeft className="w-8 h-8 text-outline" />
+            </div>
+            <h2 className="font-headline text-lg font-bold text-on-surface mb-2">
+              No providers yet
+            </h2>
+            <p className="text-sm text-on-surface-variant font-body max-w-xs">
+              Be the first to offer {categoryLabel.toLowerCase()} services in your area.
             </p>
-            <Link
-              href="/provider/register"
-              className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-            >
-              Become a Provider
-            </Link>
           </div>
         ) : (
-          <div className="space-y-4">
-            {providers.map((provider: ProviderListItem) => {
-              const fromTime = formatTime(provider.availableFrom)
-              const toTime = formatTime(provider.availableTo)
-
-              return (
-                <div
-                  key={provider.id}
-                  className="bg-white rounded-xl border border-gray-200 p-5"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-lg">
-                        {provider.displayName}
-                      </h3>
-                      {provider.bio && (
-                        <p className="text-gray-600 text-sm mt-0.5">{provider.bio}</p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-lg text-gray-900">
-                        &#8377;{provider.baseRate}
-                      </p>
-                      <p className="text-xs text-gray-500">base rate</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                    <span>&#11088; {provider.ratingAvg.toFixed(1)} ({provider.ratingCount})</span>
-                    {provider.isVerified && (
-                      <span className="text-green-600 font-medium">&#10003; Verified</span>
-                    )}
-                    {provider.areas && provider.areas.length > 0 && (
-                      <span>&#128205; {provider.areas[0].areaName}</span>
-                    )}
-                    {fromTime && toTime && (
-                      <span className="text-blue-600">
-                        &#128344; Available {fromTime} &ndash; {toTime}
-                      </span>
-                    )}
-                  </div>
-
-                  {provider.services && provider.services.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {provider.services.map((service: ProviderServiceItem) => (
-                        <span
-                          key={service.id}
-                          className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full"
-                        >
-                          {CATEGORY_ICONS[service.category?.slug] || '📋'}
-                          {service.category?.name}
-                          {service.customRate && ` · ₹${service.customRate}`}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="mt-4">
-                    <BookButton
-                      providerId={provider.id}
-                      providerName={provider.displayName}
-                      services={provider.services || []}
-                      baseRate={provider.baseRate}
-                    />
-                  </div>
-                </div>
-              )
-            })}
+          <div className="grid grid-cols-2 gap-4">
+            {providers.map((provider) => (
+              <ProviderCard
+                key={provider.id}
+                providerId={provider.id}
+                name={provider.displayName}
+                role={provider.services[0]?.category?.name ?? 'Service Provider'}
+                rating={Number(provider.ratingAvg ?? 0)}
+                reviewCount={provider.ratingCount ?? 0}
+                pricePerHour={Number(provider.services[0]?.customRate ?? provider.baseRate ?? 0)}
+                isVerified={provider.isVerified}
+                className="w-full"
+              />
+            ))}
           </div>
         )}
       </div>

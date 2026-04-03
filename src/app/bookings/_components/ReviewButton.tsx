@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { submitReview } from '@/app/actions/review'
+import { Button } from '@/components/ui/Button'
 
-// Temporary test component — Meghana will replace with styled version
 interface ReviewButtonProps {
   bookingId: string
   hasReview: boolean
@@ -20,16 +20,19 @@ export default function ReviewButton({ bookingId, hasReview, isCompleted }: Revi
 
   if (!showForm) {
     return (
-      <button
-        onClick={() => setShowForm(true)}
-        className="mt-2 text-xs px-3 py-1.5 rounded-md font-medium bg-amber-500 hover:bg-amber-600 text-white"
-      >
-        Write Review
-      </button>
+      <div className="mt-3">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setShowForm(true)}
+        >
+          Write Review
+        </Button>
+      </div>
     )
   }
 
-  function handleSubmit() {
+  function handleSubmit(): void {
     startTransition(async () => {
       const result = await submitReview(bookingId, rating, comment || undefined)
       if (result.success) {
@@ -41,13 +44,13 @@ export default function ReviewButton({ bookingId, hasReview, isCompleted }: Revi
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
-      <div className="flex items-center gap-2">
-        <label className="text-xs text-gray-600">Rating:</label>
+    <div className="mt-3 pt-3 border-t border-outline-variant/20 space-y-3">
+      <div className="flex items-center gap-3">
+        <label className="text-xs text-on-surface-variant font-body">Rating:</label>
         <select
           value={rating}
           onChange={(e) => setRating(Number(e.target.value))}
-          className="text-xs border border-gray-200 rounded px-2 py-1"
+          className="text-xs border border-outline-variant rounded-lg px-2 py-1 bg-surface-container text-on-surface font-body focus:outline-none focus:ring-2 focus:ring-primary"
         >
           {[5, 4, 3, 2, 1].map((n) => (
             <option key={n} value={n}>
@@ -60,23 +63,25 @@ export default function ReviewButton({ bookingId, hasReview, isCompleted }: Revi
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         placeholder="How was the service? (optional)"
-        className="w-full text-xs border border-gray-200 rounded p-2 resize-none"
+        className="w-full text-xs border border-outline-variant rounded-xl p-3 resize-none bg-surface-container text-on-surface font-body placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary"
         rows={2}
       />
       <div className="flex gap-2">
-        <button
-          disabled={isPending}
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={isPending}
           onClick={handleSubmit}
-          className="text-xs px-3 py-1.5 rounded-md font-medium bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50"
         >
-          {isPending ? 'Submitting...' : 'Submit Review'}
-        </button>
-        <button
+          Submit Review
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setShowForm(false)}
-          className="text-xs px-3 py-1.5 rounded-md font-medium bg-gray-200 hover:bg-gray-300 text-gray-700"
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   )

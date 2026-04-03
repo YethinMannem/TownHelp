@@ -2,6 +2,7 @@ import { getMyProviderProfile } from '@/app/actions/booking'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Star, MapPin, Plus, Clock, CheckCircle, AlertCircle, IndianRupee } from 'lucide-react'
 import type { ProviderServiceItem, ServiceAreaItem } from '@/types'
 
 export default async function ProviderDashboard() {
@@ -19,59 +20,96 @@ export default async function ProviderDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-lg mx-auto">
-        <Link href="/" className="text-sm text-blue-600 hover:underline">
-          ← Back to Home
+    <div className="min-h-screen bg-surface pb-28">
+      {/* Frosted-glass fixed header */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center justify-between">
+        <Link
+          href="/"
+          className="text-sm font-body text-primary hover:underline"
+        >
+          ← Home
         </Link>
+        <h1 className="font-headline text-base font-semibold text-on-surface">
+          Provider Dashboard
+        </h1>
+        <div className="w-12" /> {/* spacer to centre the title */}
+      </div>
 
-        <div className="mt-4 bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">{profile.displayName}</h1>
+      <div className="max-w-lg mx-auto px-4 pt-14 mt-5 space-y-5">
+        {/* Profile Card */}
+        <div className="bg-surface-container rounded-2xl p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h2 className="font-headline text-lg font-bold text-on-surface truncate">
+                {profile.displayName}
+              </h2>
               {profile.bio && (
-                <p className="text-gray-600 text-sm mt-1">{profile.bio}</p>
+                <p className="font-body text-sm text-on-surface-variant mt-1 line-clamp-2">
+                  {profile.bio}
+                </p>
               )}
             </div>
-            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-              profile.isVerified
-                ? 'bg-green-100 text-green-700'
-                : 'bg-yellow-100 text-yellow-700'
-            }`}>
-              {profile.isVerified ? 'Verified' : 'Pending Verification'}
+            <span
+              className={`shrink-0 flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-body font-medium ${
+                profile.isVerified
+                  ? 'bg-primary-fixed text-on-primary-fixed'
+                  : 'bg-secondary-fixed text-on-secondary-fixed'
+              }`}
+            >
+              {profile.isVerified
+                ? <><CheckCircle className="w-3 h-3" /> Verified</>
+                : <><AlertCircle className="w-3 h-3" /> Pending</>
+              }
             </span>
           </div>
 
-          <div className="mt-4 flex gap-4 text-sm text-gray-600">
-            <span>⭐ {profile.ratingAvg.toFixed(1)} ({profile.ratingCount} reviews)</span>
-            <span>₹{profile.baseRate}/hr base</span>
+          {/* Stats row */}
+          <div className="mt-4 flex items-center gap-5 text-sm font-body">
+            <span className="flex items-center gap-1 text-on-surface">
+              <Star className="w-4 h-4 text-primary fill-primary" />
+              <span className="font-semibold">{profile.ratingAvg.toFixed(1)}</span>
+              <span className="text-on-surface-variant">({profile.ratingCount})</span>
+            </span>
+            <span className="flex items-center gap-1 text-on-surface">
+              <IndianRupee className="w-4 h-4 text-on-surface-variant" />
+              <span className="font-semibold">{profile.baseRate}</span>
+              <span className="text-on-surface-variant">/hr base</span>
+            </span>
           </div>
 
           {profile.areas && profile.areas.length > 0 && (
-            <div className="mt-2 text-sm text-gray-500">
-              📍 {profile.areas.map((a: ServiceAreaItem) => a.areaName).join(', ')}
+            <div className="mt-3 flex items-start gap-1.5 text-sm font-body text-on-surface-variant">
+              <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-primary" />
+              <span>{profile.areas.map((a: ServiceAreaItem) => a.areaName).join(', ')}</span>
             </div>
           )}
         </div>
 
-        <div className="mt-6">
+        {/* Services Section */}
+        <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-800">Your Services</h2>
+            <h2 className="font-headline text-base font-semibold text-on-surface">
+              Your Services
+            </h2>
             <Link
               href="/provider/add-service"
-              className="text-sm text-blue-600 hover:underline"
+              className="flex items-center gap-1 text-sm font-body font-medium text-primary hover:underline"
             >
-              + Add Service
+              <Plus className="w-4 h-4" />
+              Add Service
             </Link>
           </div>
 
           {(!profile.services || profile.services.length === 0) ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-              <p className="text-gray-500 mb-3">No services listed yet</p>
+            <div className="bg-surface-container rounded-2xl p-6 text-center">
+              <p className="font-body text-sm text-on-surface-variant mb-4">
+                No services listed yet. Add your first service to start receiving bookings.
+              </p>
               <Link
                 href="/provider/add-service"
-                className="inline-block px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                className="inline-flex items-center gap-2 px-5 py-3 bg-brand-gradient text-on-primary font-body font-semibold text-sm rounded-2xl shadow-sm hover:opacity-90 transition-opacity"
               >
+                <Plus className="w-4 h-4" />
                 Add Your First Service
               </Link>
             </div>
@@ -80,19 +118,23 @@ export default async function ProviderDashboard() {
               {profile.services.map((service: ProviderServiceItem) => (
                 <div
                   key={service.id}
-                  className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between"
+                  className="bg-surface-container rounded-2xl px-4 py-3 flex items-center justify-between gap-3"
                 >
-                  <div>
-                    <p className="font-medium text-gray-800">{service.category?.name}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-body font-semibold text-on-surface text-sm">
+                      {service.category?.name}
+                    </p>
                     {service.description && (
-                      <p className="text-sm text-gray-500 mt-0.5">{service.description}</p>
+                      <p className="font-body text-xs text-on-surface-variant mt-0.5 truncate">
+                        {service.description}
+                      </p>
                     )}
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">
+                  <div className="text-right shrink-0">
+                    <p className="font-body font-bold text-on-surface text-sm">
                       ₹{service.customRate || profile.baseRate}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="font-body text-xs text-on-surface-variant">
                       /{service.rateType?.toLowerCase() || 'hr'}
                     </p>
                   </div>
@@ -102,18 +144,27 @@ export default async function ProviderDashboard() {
           )}
         </div>
 
-        <div className="mt-6">
+        {/* Quick Actions */}
+        <div>
+          <h2 className="font-headline text-base font-semibold text-on-surface mb-3">
+            Quick Actions
+          </h2>
           <Link
             href="/provider/availability"
-            className="block w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="flex items-center gap-3 w-full bg-surface-container rounded-2xl px-4 py-4 hover:bg-surface-container-high transition-colors"
           >
-            Availability Settings
+            <div className="w-9 h-9 rounded-xl bg-primary-fixed flex items-center justify-center shrink-0">
+              <Clock className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-body font-medium text-on-surface text-sm">Availability Settings</p>
+              <p className="font-body text-xs text-on-surface-variant mt-0.5">
+                Set your working hours and online status
+              </p>
+            </div>
+            <span className="font-body text-on-surface-variant text-lg leading-none">›</span>
           </Link>
         </div>
-
-        <p className="mt-8 text-center text-xs text-gray-400">
-          Session 4 — Provider Dashboard
-        </p>
       </div>
     </div>
   )

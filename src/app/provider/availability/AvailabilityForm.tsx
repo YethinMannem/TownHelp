@@ -2,6 +2,9 @@
 
 import { useTransition } from 'react'
 import { toggleAvailability, updateAvailabilityHours } from '@/app/actions/provider'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Wifi, WifiOff } from 'lucide-react'
 
 interface AvailabilityFormProps {
   isAvailable: boolean
@@ -34,21 +37,24 @@ export default function AvailabilityForm({
   }
 
   return (
-    <div className="mt-6 space-y-6">
+    <div className="space-y-4">
       {/* Online / Offline toggle */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-base font-semibold text-gray-800">Status</h2>
-        <p className="text-sm text-gray-500 mt-1">
+      <section className="bg-surface-container rounded-2xl p-5">
+        <h2 className="font-headline text-base font-semibold text-on-surface">Status</h2>
+        <p className="font-body text-sm text-on-surface-variant mt-1">
           When offline, customers cannot book you.
         </p>
 
         <div className="mt-4 flex items-center gap-4">
           <span
-            className={`text-sm font-medium ${
-              isAvailable ? 'text-green-700' : 'text-gray-500'
+            className={`flex items-center gap-1.5 text-sm font-body font-medium ${
+              isAvailable ? 'text-primary' : 'text-on-surface-variant'
             }`}
           >
-            {isAvailable ? 'Online' : 'Offline'}
+            {isAvailable
+              ? <><Wifi className="w-4 h-4" /> Online</>
+              : <><WifiOff className="w-4 h-4" /> Offline</>
+            }
           </span>
 
           <button
@@ -56,66 +62,58 @@ export default function AvailabilityForm({
             onClick={handleToggle}
             disabled={togglePending}
             aria-label={isAvailable ? 'Go offline' : 'Go online'}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-60 ${
-              isAvailable ? 'bg-green-500' : 'bg-gray-300'
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 ${
+              isAvailable ? 'bg-primary' : 'bg-outline-variant'
             }`}
           >
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+              className={`inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform ${
                 isAvailable ? 'translate-x-6' : 'translate-x-1'
               }`}
             />
           </button>
 
           {togglePending && (
-            <span className="text-xs text-gray-400">Saving...</span>
+            <span className="font-body text-xs text-on-surface-variant">Saving...</span>
           )}
         </div>
       </section>
 
       {/* Working hours */}
-      <section className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-base font-semibold text-gray-800">Working Hours</h2>
-        <p className="text-sm text-gray-500 mt-1">
+      <section className="bg-surface-container rounded-2xl p-5">
+        <h2 className="font-headline text-base font-semibold text-on-surface">Working Hours</h2>
+        <p className="font-body text-sm text-on-surface-variant mt-1">
           Set the hours you are available each day.
         </p>
 
         <form onSubmit={handleHoursSubmit} className="mt-4 space-y-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="availableFrom" className="text-sm font-medium text-gray-700">
-              From
-            </label>
-            <input
-              id="availableFrom"
-              name="availableFrom"
-              type="time"
-              defaultValue={availableFrom}
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
+          <Input
+            id="availableFrom"
+            name="availableFrom"
+            type="time"
+            label="From"
+            defaultValue={availableFrom}
+            required
+          />
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="availableTo" className="text-sm font-medium text-gray-700">
-              To
-            </label>
-            <input
-              id="availableTo"
-              name="availableTo"
-              type="time"
-              defaultValue={availableTo}
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
+          <Input
+            id="availableTo"
+            name="availableTo"
+            type="time"
+            label="To"
+            defaultValue={availableTo}
+            required
+          />
 
-          <button
+          <Button
             type="submit"
+            loading={hoursPending}
             disabled={hoursPending}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-60"
+            className="w-full"
+            size="lg"
           >
             {hoursPending ? 'Saving...' : 'Save Hours'}
-          </button>
+          </Button>
         </form>
       </section>
     </div>

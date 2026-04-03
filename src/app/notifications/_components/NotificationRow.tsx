@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react'
 import { readNotification } from '@/app/actions/notification'
+import { Bell, Calendar, Star, MessageCircle, CheckCircle, AlertCircle } from 'lucide-react'
 import type { NotificationItem } from '@/types'
 
 interface NotificationRowProps {
@@ -22,6 +23,27 @@ function formatTimestamp(date: Date): string {
   return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 
+function getNotificationIcon(type: string) {
+  const cls = 'w-5 h-5'
+  switch (type) {
+    case 'BOOKING_REQUEST':
+    case 'BOOKING_CONFIRMED':
+    case 'BOOKING_CANCELLED':
+      return <Calendar className={cls} />
+    case 'REVIEW_RECEIVED':
+      return <Star className={cls} />
+    case 'MESSAGE_RECEIVED':
+      return <MessageCircle className={cls} />
+    case 'BOOKING_COMPLETED':
+      return <CheckCircle className={cls} />
+    case 'DISPUTE_OPENED':
+    case 'REPORT_RESOLVED':
+      return <AlertCircle className={cls} />
+    default:
+      return <Bell className={cls} />
+  }
+}
+
 export default function NotificationRow({ notification }: NotificationRowProps) {
   const [isPending, startTransition] = useTransition()
 
@@ -37,28 +59,56 @@ export default function NotificationRow({ notification }: NotificationRowProps) 
       onClick={handleClick}
       disabled={isPending || notification.isRead}
       className={[
-        'w-full text-left px-4 py-3 border-b border-gray-100 last:border-b-0 transition-colors',
+        'w-full text-left bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-4 transition-all duration-150',
         notification.isRead
-          ? 'bg-white'
-          : 'bg-blue-50 hover:bg-blue-100 cursor-pointer',
+          ? 'opacity-80'
+          : 'hover:shadow-[0_2px_8px_rgba(27,28,27,0.08)] cursor-pointer',
         isPending ? 'opacity-60' : '',
       ].join(' ')}
-      aria-label={notification.isRead ? notification.title : `Mark as read: ${notification.title}`}
+      aria-label={
+        notification.isRead ? notification.title : `Mark as read: ${notification.title}`
+      }
     >
       <div className="flex items-start gap-3">
-        {!notification.isRead && (
-          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" aria-hidden="true" />
-        )}
-        {notification.isRead && (
-          <span className="mt-1.5 h-2 w-2 shrink-0" aria-hidden="true" />
-        )}
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-medium truncate ${notification.isRead ? 'text-gray-700' : 'text-gray-900'}`}>
-            {notification.title}
-          </p>
-          <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{notification.body}</p>
-          <p className="text-xs text-gray-400 mt-1">{formatTimestamp(notification.createdAt)}</p>
+        {/* Icon */}
+        <div
+          className={[
+            'shrink-0 w-9 h-9 rounded-full flex items-center justify-center',
+            notification.isRead
+              ? 'bg-surface-container text-on-surface-variant'
+              : 'bg-primary-fixed text-on-primary-fixed',
+          ].join(' ')}
+          aria-hidden="true"
+        >
+          {getNotificationIcon(notification.type)}
         </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p
+              className={`text-sm font-semibold font-body truncate ${
+                notification.isRead ? 'text-on-surface-variant' : 'text-on-surface'
+              }`}
+            >
+              {notification.title}
+            </p>
+            <p className="text-xs text-outline font-body shrink-0">
+              {formatTimestamp(notification.createdAt)}
+            </p>
+          </div>
+          <p className="text-sm text-on-surface-variant font-body mt-0.5 line-clamp-2">
+            {notification.body}
+          </p>
+        </div>
+
+        {/* Unread dot */}
+        {!notification.isRead && (
+          <span
+            className="shrink-0 mt-1 h-2 w-2 rounded-full bg-primary"
+            aria-hidden="true"
+          />
+        )}
       </div>
     </button>
   )

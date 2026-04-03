@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { createProviderProfile } from '@/app/actions/provider'
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { UserCircle } from 'lucide-react'
 
 export default function RegisterProviderPage() {
   const [error, setError] = useState('')
@@ -20,73 +23,61 @@ export default function RegisterProviderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-md mx-auto">
-        <Link href="/" className="text-sm text-blue-600 hover:underline">
-          ← Back to Home
+    <div className="min-h-screen bg-surface pb-28">
+      {/* Frosted-glass fixed header */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center gap-3">
+        <Link href="/" className="text-sm font-body text-primary hover:underline">
+          ← Home
         </Link>
-
-        <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-2">
+        <div className="w-8 h-8 rounded-xl bg-primary-fixed flex items-center justify-center shrink-0">
+          <UserCircle className="w-4 h-4 text-primary" />
+        </div>
+        <h1 className="font-headline text-base font-semibold text-on-surface">
           Become a Provider
         </h1>
-        <p className="text-gray-600 mb-6">
-          Start offering your services on TownHelp. Fill in the basics — you can update later.
-        </p>
+      </div>
 
+      <div className="max-w-md mx-auto px-4 pt-14 mt-6">
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div className="mb-5 p-4 bg-error-container rounded-2xl text-on-error-container font-body text-sm">
             {error}
           </div>
         )}
 
         <form action={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">
-              Display Name *
-            </label>
-            <input
-              type="text"
-              id="displayName"
-              name="displayName"
-              required
-              placeholder="e.g. Ravi's Electrical Services"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-            <p className="text-xs text-gray-500 mt-1">This is what customers will see</p>
-          </div>
+          <Input
+            id="displayName"
+            name="displayName"
+            label="Display Name *"
+            required
+            placeholder="e.g. Ravi's Electrical Services"
+            hint="This is what customers will see"
+          />
 
-          <div>
-            <label htmlFor="baseRate" className="block text-sm font-medium text-gray-700 mb-1">
-              Base Rate (₹/hour) *
-            </label>
-            <input
-              type="number"
-              id="baseRate"
-              name="baseRate"
-              required
-              min="50"
-              max="10000"
-              placeholder="e.g. 300"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-            <p className="text-xs text-gray-500 mt-1">You can set different rates per service later</p>
-          </div>
+          <Input
+            id="baseRate"
+            name="baseRate"
+            type="number"
+            label="Base Rate (₹/hour) *"
+            required
+            min="50"
+            max="10000"
+            placeholder="e.g. 300"
+            hint="You can set different rates per service later"
+          />
 
-          <div>
-            <label htmlFor="areaName" className="block text-sm font-medium text-gray-700 mb-1">
-              Primary Service Area
-            </label>
-            <input
-              type="text"
-              id="areaName"
-              name="areaName"
-              placeholder="e.g. Madhapur, Gachibowli"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-          </div>
+          <Input
+            id="areaName"
+            name="areaName"
+            label="Primary Service Area"
+            placeholder="e.g. Madhapur, Gachibowli"
+          />
 
-          <div>
-            <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="bio"
+              className="text-sm font-medium text-on-surface-variant font-body"
+            >
               Short Bio
             </label>
             <textarea
@@ -94,17 +85,18 @@ export default function RegisterProviderPage() {
               name="bio"
               rows={3}
               placeholder="Tell customers about your experience..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+              className="w-full rounded-xl border border-outline-variant px-4 py-3 text-base font-body text-on-surface placeholder:text-outline bg-surface-container-lowest transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-none"
             />
           </div>
 
-          <button
+          <Button
             type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
+            loading={loading}
+            className="w-full mt-2"
+            size="lg"
           >
             {loading ? 'Creating Profile...' : 'Create Provider Profile →'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

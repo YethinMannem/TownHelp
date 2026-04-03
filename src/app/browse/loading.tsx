@@ -1,42 +1,23 @@
 export default function BrowseLoading() {
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-        <div className="h-8 w-56 bg-gray-200 rounded animate-pulse mt-4 mb-2" />
-        <div className="h-4 w-64 bg-gray-200 rounded animate-pulse mb-6" />
+    <div className="min-h-screen bg-surface pb-28">
+      {/* Skeleton header */}
+      <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-surface-container animate-pulse" />
+        <div className="h-4 w-32 bg-surface-container rounded animate-pulse" />
+      </header>
 
-        <div className="flex gap-2 mb-6">
-          {[1, 2, 3, 4].map((i) => (
+      <div className="pt-16 px-4 py-6">
+        <div className="grid grid-cols-2 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="h-8 w-20 bg-gray-200 rounded-full animate-pulse shrink-0"
-            />
-          ))}
-        </div>
-
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="bg-white rounded-xl border border-gray-200 p-5 space-y-3"
+              className="bg-surface-container rounded-2xl p-4 space-y-3 animate-pulse"
             >
-              <div className="flex justify-between">
-                <div className="space-y-2">
-                  <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
-                  <div className="h-4 w-56 bg-gray-200 rounded animate-pulse" />
-                </div>
-                <div className="space-y-1 text-right">
-                  <div className="h-6 w-12 bg-gray-200 rounded animate-pulse ml-auto" />
-                  <div className="h-3 w-14 bg-gray-100 rounded animate-pulse ml-auto" />
-                </div>
-              </div>
-              <div className="h-4 w-36 bg-gray-100 rounded animate-pulse" />
-              <div className="flex gap-1.5">
-                <div className="h-6 w-24 bg-gray-100 rounded-full animate-pulse" />
-                <div className="h-6 w-20 bg-gray-100 rounded-full animate-pulse" />
-              </div>
-              <div className="h-9 w-full bg-gray-200 rounded-lg animate-pulse" />
+              <div className="w-12 h-12 rounded-full bg-surface-container-high mx-auto" />
+              <div className="h-4 w-3/4 bg-surface-container-high rounded mx-auto" />
+              <div className="h-3 w-1/2 bg-surface-container-high rounded mx-auto" />
+              <div className="h-3 w-2/3 bg-surface-container-high rounded mx-auto" />
             </div>
           ))}
         </div>

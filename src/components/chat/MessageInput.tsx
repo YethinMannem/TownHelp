@@ -37,13 +37,13 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
   }
 
   return (
-    <div className="border-t border-gray-200 bg-white px-4 py-3">
+    <div className="bg-surface-container-lowest/90 backdrop-blur-md border-t border-outline-variant/20 px-4 py-3">
       {error && (
-        <p role="alert" className="text-red-600 text-xs mb-2">
+        <p role="alert" className="text-error text-xs mb-2">
           {error}
         </p>
       )}
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-2 max-w-2xl mx-auto">
         <label htmlFor="message-input" className="sr-only">
           Type a message
         </label>
@@ -56,17 +56,17 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
           placeholder="Type a message..."
           rows={1}
           disabled={isPending}
-          className="flex-1 resize-none rounded-2xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-32 overflow-y-auto"
+          className="flex-1 resize-none bg-surface-container-lowest border border-outline-variant rounded-2xl px-4 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 disabled:opacity-50 max-h-32 overflow-y-auto"
         />
         <button
           type="button"
           onClick={handleSubmit}
           disabled={!content.trim() || isPending}
           aria-label="Send message"
-          className="shrink-0 w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="shrink-0 w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isPending ? (
-            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+            <span className="w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
           ) : (
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -80,7 +80,7 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
           )}
         </button>
       </div>
-      <p className="text-xs text-gray-400 mt-1.5 text-center">
+      <p className="text-xs text-on-surface-variant/60 mt-1.5 text-center max-w-2xl mx-auto">
         Press Enter to send, Shift+Enter for new line
       </p>
     </div>

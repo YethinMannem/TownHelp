@@ -16,7 +16,7 @@ export default function MarkAllReadButton() {
 
   if (done) {
     return (
-      <span className="text-xs text-gray-400">All marked as read</span>
+      <span className="text-xs text-on-surface-variant font-body">All read</span>
     )
   }
 
@@ -24,7 +24,7 @@ export default function MarkAllReadButton() {
     <button
       onClick={handleClick}
       disabled={isPending}
-      className="text-sm text-blue-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+      className="text-sm text-primary font-semibold font-body disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:opacity-70"
     >
       {isPending ? 'Marking...' : 'Mark all read'}
     </button>

@@ -9,21 +9,12 @@ import {
   cancelBooking,
   disputeBooking,
 } from '@/app/actions/booking'
+import { Button } from '@/components/ui/Button'
 import type { BookingActions } from '@/types'
 
-// Temporary test component — Meghana will replace with styled version
 interface BookingActionButtonsProps {
   bookingId: string
   actions: BookingActions
-}
-
-const BUTTON_STYLES: Record<string, string> = {
-  confirm: 'bg-green-600 hover:bg-green-700 text-white',
-  reject: 'bg-red-600 hover:bg-red-700 text-white',
-  start: 'bg-purple-600 hover:bg-purple-700 text-white',
-  complete: 'bg-blue-600 hover:bg-blue-700 text-white',
-  cancel: 'bg-gray-600 hover:bg-gray-700 text-white',
-  dispute: 'bg-orange-600 hover:bg-orange-700 text-white',
 }
 
 export default function BookingActionButtons({ bookingId, actions }: BookingActionButtonsProps) {
@@ -32,7 +23,7 @@ export default function BookingActionButtons({ bookingId, actions }: BookingActi
   const hasAnyAction = Object.values(actions).some(Boolean)
   if (!hasAnyAction) return null
 
-  function handleAction(action: () => Promise<unknown>) {
+  function handleAction(action: () => Promise<unknown>): void {
     startTransition(async () => {
       const result = await action()
       if (result && typeof result === 'object' && 'error' in result) {
@@ -42,67 +33,75 @@ export default function BookingActionButtons({ bookingId, actions }: BookingActi
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
+    <div className="mt-3 pt-3 border-t border-outline-variant/20 flex flex-wrap gap-2">
       {actions.canConfirm && (
-        <button
+        <Button
+          variant="primary"
+          size="sm"
           disabled={isPending}
           onClick={() => handleAction(() => confirmBooking(bookingId))}
-          className={`text-xs px-3 py-1.5 rounded-md font-medium ${BUTTON_STYLES.confirm} disabled:opacity-50`}
         >
           Confirm
-        </button>
+        </Button>
       )}
       {actions.canReject && (
-        <button
+        <Button
+          variant="destructive"
+          size="sm"
           disabled={isPending}
           onClick={() => handleAction(() => rejectBooking(bookingId))}
-          className={`text-xs px-3 py-1.5 rounded-md font-medium ${BUTTON_STYLES.reject} disabled:opacity-50`}
         >
           Reject
-        </button>
+        </Button>
       )}
       {actions.canStart && (
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
           disabled={isPending}
           onClick={() => handleAction(() => startBooking(bookingId))}
-          className={`text-xs px-3 py-1.5 rounded-md font-medium ${BUTTON_STYLES.start} disabled:opacity-50`}
         >
           Start
-        </button>
+        </Button>
       )}
       {actions.canComplete && (
-        <button
+        <Button
+          variant="primary"
+          size="sm"
           disabled={isPending}
           onClick={() => handleAction(() => completeBooking(bookingId))}
-          className={`text-xs px-3 py-1.5 rounded-md font-medium ${BUTTON_STYLES.complete} disabled:opacity-50`}
         >
           Complete
-        </button>
+        </Button>
       )}
       {actions.canCancel && (
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           disabled={isPending}
           onClick={() => handleAction(() => cancelBooking(bookingId))}
-          className={`text-xs px-3 py-1.5 rounded-md font-medium ${BUTTON_STYLES.cancel} disabled:opacity-50`}
         >
           Cancel
-        </button>
+        </Button>
       )}
       {actions.canDispute && (
-        <button
+        <Button
+          variant="destructive"
+          size="sm"
           disabled={isPending}
           onClick={() => handleAction(() => disputeBooking(bookingId))}
-          className={`text-xs px-3 py-1.5 rounded-md font-medium ${BUTTON_STYLES.dispute} disabled:opacity-50`}
         >
           Dispute
-        </button>
+        </Button>
       )}
       {actions.awaitingPayment && (
-        <span className="text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700 font-medium self-center">
+        <span className="text-xs px-3 py-2 rounded-xl bg-surface-container text-on-surface-variant font-body self-center">
           Awaiting payment from requester
         </span>
       )}
-      {isPending && <span className="text-xs text-gray-400 self-center">Updating...</span>}
+      {isPending && (
+        <span className="text-xs text-on-surface-variant font-body self-center">Updating…</span>
+      )}
     </div>
   )
 }

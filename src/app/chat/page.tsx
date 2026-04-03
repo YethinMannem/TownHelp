@@ -3,6 +3,18 @@ import { getConversations } from '@/app/actions/chat'
 import Link from 'next/link'
 import type { ConversationItem } from '@/types'
 
+const AVATAR_COLORS = [
+  'bg-primary-fixed text-on-primary-fixed',
+  'bg-secondary-fixed text-on-secondary-fixed',
+  'bg-tertiary-fixed text-on-tertiary-fixed',
+  'bg-error-container text-on-error-container',
+  'bg-tertiary-fixed text-on-tertiary-fixed',
+] as const
+
+function getAvatarColor(name: string): string {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
+}
+
 function formatRelativeTime(date: Date): string {
   const now = new Date()
   const diffMs = now.getTime() - new Date(date).getTime()
@@ -22,64 +34,72 @@ export default async function ChatPage() {
   const conversations = await getConversations()
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <Link href="/" className="text-sm text-blue-600 hover:underline">
-            &larr; Home
-          </Link>
-          <h1 className="text-lg font-bold text-gray-900">Messages</h1>
-        </div>
+    <div className="min-h-screen bg-surface">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center gap-3">
+        <Link
+          href="/"
+          className="text-sm text-primary font-medium"
+          aria-label="Back to home"
+        >
+          &larr; Home
+        </Link>
+        <h1 className="font-headline font-bold text-base text-on-surface">Messages</h1>
       </header>
 
-      <main className="max-w-2xl mx-auto py-4 px-4">
+      <main className="max-w-2xl mx-auto pt-14 pb-28 px-4">
         {conversations.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-10 text-center mt-8">
-            <p className="text-gray-500 text-lg font-medium mb-1">No conversations yet</p>
-            <p className="text-gray-400 text-sm mb-4">
+          <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-10 text-center mt-8">
+            <p className="text-on-surface font-medium text-lg mb-1">No conversations yet</p>
+            <p className="text-on-surface-variant text-sm mb-4">
               Messages with providers will appear here after you make a booking.
             </p>
             <Link
               href="/browse"
-              className="inline-block px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-block px-4 py-2 bg-primary text-on-primary text-sm rounded-xl hover:opacity-90 transition-opacity"
             >
               Browse Providers
             </Link>
           </div>
         ) : (
-          <ul className="space-y-0 bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+          <ul className="space-y-2 mt-4">
             {conversations.map((conversation: ConversationItem) => (
               <li key={conversation.id}>
                 <Link
                   href={`/chat/${conversation.id}`}
-                  className="flex items-start gap-3 px-4 py-4 hover:bg-gray-50 transition-colors"
+                  className="flex items-start gap-3 px-4 py-4 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 hover:bg-surface-container/50 transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center shrink-0 text-sm">
+                  <div
+                    className={`w-10 h-10 rounded-full font-bold flex items-center justify-center shrink-0 text-sm ${getAvatarColor(conversation.otherPartyName)}`}
+                    aria-hidden="true"
+                  >
                     {conversation.otherPartyName.charAt(0).toUpperCase()}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-gray-900 text-sm truncate">
+                      <span className="font-semibold text-on-surface text-sm truncate">
                         {conversation.otherPartyName}
                       </span>
-                      <span className="text-xs text-gray-400 shrink-0">
+                      <span className="text-xs text-on-surface-variant shrink-0">
                         {formatRelativeTime(conversation.lastMessageAt)}
                       </span>
                     </div>
 
-                    <p className="text-xs text-gray-500 mt-0.5 truncate">
+                    <p className="text-xs text-on-surface-variant mt-0.5 truncate">
                       {conversation.categoryName} &middot; #{conversation.bookingNumber}
                     </p>
 
                     <div className="flex items-center justify-between gap-2 mt-1">
-                      <p className="text-sm text-gray-600 truncate">
+                      <p className="text-sm text-on-surface-variant truncate">
                         {conversation.lastMessage ?? (
-                          <span className="italic text-gray-400">No messages yet</span>
+                          <span className="italic text-on-surface-variant/60">No messages yet</span>
                         )}
                       </p>
                       {conversation.unreadCount > 0 && (
-                        <span className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold">
+                        <span
+                          className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-on-primary text-xs font-bold"
+                          aria-label={`${conversation.unreadCount} unread messages`}
+                        >
                           {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
                         </span>
                       )}

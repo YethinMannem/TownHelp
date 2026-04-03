@@ -112,8 +112,8 @@ export default function ChatMessages({
   if (messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center">
-        <p className="text-gray-400 text-sm">No messages yet.</p>
-        <p className="text-gray-400 text-sm">Send a message to start the conversation.</p>
+        <p className="text-on-surface-variant text-sm">No messages yet.</p>
+        <p className="text-on-surface-variant text-sm">Send a message to start the conversation.</p>
       </div>
     )
   }
@@ -123,9 +123,9 @@ export default function ChatMessages({
       {groupedMessages.map(({ date, items }) => (
         <div key={date}>
           <div className="flex items-center gap-2 my-4" role="separator">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400 font-medium shrink-0">{date}</span>
-            <div className="flex-1 h-px bg-gray-200" />
+            <div className="flex-1 h-px bg-outline-variant/40" />
+            <span className="text-xs text-on-surface-variant font-medium shrink-0">{date}</span>
+            <div className="flex-1 h-px bg-outline-variant/40" />
           </div>
 
           <div className="space-y-2">
@@ -137,14 +137,14 @@ export default function ChatMessages({
                 <div
                   className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
                     message.isMine
-                      ? 'bg-blue-600 text-white rounded-br-sm'
-                      : 'bg-white border border-gray-200 text-gray-900 rounded-bl-sm'
+                      ? 'bg-primary text-on-primary rounded-br-sm'
+                      : 'bg-surface-container text-on-surface rounded-bl-sm'
                   }`}
                 >
                   <p className="leading-relaxed break-words">{message.content}</p>
                   <p
                     className={`text-xs mt-1 ${
-                      message.isMine ? 'text-blue-200' : 'text-gray-400'
+                      message.isMine ? 'text-on-primary/70' : 'text-on-surface-variant'
                     }`}
                     aria-label={`Sent at ${formatTime(message.createdAt)}`}
                   >

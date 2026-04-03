@@ -1,26 +1,24 @@
 export default function NotificationsLoading() {
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-lg mx-auto">
-        <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+    <div className="min-h-screen bg-surface pb-28">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center justify-between">
+        <div className="h-4 w-32 bg-surface-container-highest rounded animate-pulse" />
+        <div className="h-4 w-24 bg-surface-container-highest rounded animate-pulse" />
+      </header>
 
-        <div className="flex items-center justify-between mt-4 mb-6">
-          <div>
-            <div className="h-7 w-40 bg-gray-200 rounded animate-pulse" />
-            <div className="h-4 w-20 bg-gray-100 rounded animate-pulse mt-1" />
-          </div>
-          <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="max-w-lg mx-auto px-4 pt-14">
+        <div className="space-y-2 mt-4">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="px-4 py-3 border-b border-gray-100 last:border-b-0">
+            <div
+              key={i}
+              className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-4"
+            >
               <div className="flex items-start gap-3">
-                <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gray-200 animate-pulse" />
+                <div className="shrink-0 w-9 h-9 rounded-full bg-surface-container animate-pulse" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
-                  <div className="h-3 w-full bg-gray-100 rounded animate-pulse" />
-                  <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-4 w-3/4 bg-surface-container rounded animate-pulse" />
+                  <div className="h-3 w-full bg-surface-container rounded animate-pulse" />
+                  <div className="h-3 w-1/2 bg-surface-container rounded animate-pulse" />
                 </div>
               </div>
             </div>

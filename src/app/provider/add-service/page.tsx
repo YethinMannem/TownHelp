@@ -2,6 +2,8 @@ import { getServiceCategories, getMyProviderProfile } from '@/app/actions/bookin
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AddServiceForm from './AddServiceForm'
+import Link from 'next/link'
+import { Layers } from 'lucide-react'
 import type { ProviderServiceItem } from '@/types'
 
 export default async function AddServicePage() {
@@ -25,32 +27,51 @@ export default async function AddServicePage() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+    <div className="min-h-screen bg-surface pb-28">
+      {/* Frosted-glass fixed header */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center gap-3">
+        <Link href="/provider/dashboard" className="text-sm font-body text-primary hover:underline">
+          ← Dashboard
+        </Link>
+        <div className="w-8 h-8 rounded-xl bg-secondary-fixed flex items-center justify-center shrink-0">
+          <Layers className="w-4 h-4 text-secondary" />
+        </div>
+        <h1 className="font-headline text-base font-semibold text-on-surface">
           Add a Service
         </h1>
-        <p className="text-gray-600 mb-6">
-          What service do you want to offer, {profile.displayName}?
-        </p>
+      </div>
 
+      <div className="max-w-md mx-auto px-4 pt-14 mt-5">
+        {/* Current services chips */}
         {profile.services && profile.services.length > 0 && (
-          <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm font-medium text-blue-800 mb-1">Your current services:</p>
-            {profile.services.map((s: ProviderServiceItem) => (
-              <span key={s.id} className="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded mr-2 mb-1">
-                {s.category?.name} — ₹{s.customRate || profile.baseRate}/{s.rateType?.toLowerCase() || 'hr'}
-              </span>
-            ))}
+          <div className="mb-5 p-4 bg-surface-container rounded-2xl">
+            <p className="font-body text-sm font-semibold text-on-surface mb-2">
+              Your current services
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {profile.services.map((s: ProviderServiceItem) => (
+                <span
+                  key={s.id}
+                  className="text-xs font-body bg-primary-fixed text-primary px-2.5 py-1 rounded-full"
+                >
+                  {s.category?.name} — ₹{s.customRate || profile.baseRate}/{s.rateType?.toLowerCase() || 'hr'}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
         {availableCategories.length === 0 ? (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-            <p className="text-green-700 font-medium">You offer all available services!</p>
-            <a href="/provider/dashboard" className="text-sm text-blue-600 hover:underline mt-2 inline-block">
+          <div className="p-6 bg-surface-container rounded-2xl text-center">
+            <p className="font-body font-semibold text-on-surface mb-2">
+              You offer all available services!
+            </p>
+            <Link
+              href="/provider/dashboard"
+              className="font-body text-sm text-primary hover:underline"
+            >
               Go to Dashboard →
-            </a>
+            </Link>
           </div>
         ) : (
           <AddServiceForm categories={availableCategories} />

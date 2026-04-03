@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Heart } from 'lucide-react'
 import { toggleFavorite } from '@/app/actions/favorite'
+import { cn } from '@/lib/cn'
 
 interface FavoriteButtonProps {
   providerId: string
@@ -26,14 +28,18 @@ export default function FavoriteButton({ providerId, initialFavorited }: Favorit
       disabled={isPending}
       aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
       aria-pressed={favorited}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors disabled:opacity-60 ${
+      className={cn(
+        'w-12 h-12 flex items-center justify-center rounded-2xl border transition-all duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+        'disabled:opacity-60 disabled:pointer-events-none shrink-0',
         favorited
-          ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
-          : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-      }`}
+          ? 'bg-error-container border-error text-error'
+          : 'bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+      )}
     >
-      <span aria-hidden="true">{favorited ? '♥' : '♡'}</span>
-      {favorited ? 'Saved' : 'Save'}
+      <Heart
+        className={cn('w-5 h-5 transition-all', favorited && 'fill-current')}
+      />
     </button>
   )
 }

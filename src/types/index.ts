@@ -106,6 +106,7 @@ export interface BookingAsRequester {
   cancelledAt: Date | null
   provider: {
     displayName: string
+    userId: string
   }
   category: {
     name: string
@@ -128,6 +129,7 @@ export interface BookingAsProvider {
   confirmedAt: Date | null
   completedAt: Date | null
   cancelledAt: Date | null
+  requesterId: string
   requester: {
     fullName: string
     phone: string | null
