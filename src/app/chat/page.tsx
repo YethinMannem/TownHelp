@@ -8,7 +8,7 @@ const AVATAR_COLORS = [
   'bg-secondary-fixed text-on-secondary-fixed',
   'bg-tertiary-fixed text-on-tertiary-fixed',
   'bg-error-container text-on-error-container',
-  'bg-[#cde5ff] text-[#073452]',
+  'bg-tertiary-fixed text-on-tertiary-fixed',
 ] as const
 
 function getAvatarColor(name: string): string {
@@ -46,7 +46,7 @@ export default async function ChatPage() {
         <h1 className="font-headline font-bold text-base text-on-surface">Messages</h1>
       </header>
 
-      <main className="max-w-2xl mx-auto pt-14 pb-28 px-4 py-4">
+      <main className="max-w-2xl mx-auto pt-14 pb-28 px-4">
         {conversations.length === 0 ? (
           <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-10 text-center mt-8">
             <p className="text-on-surface font-medium text-lg mb-1">No conversations yet</p>
