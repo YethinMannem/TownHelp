@@ -22,7 +22,7 @@ export default function UnfavoriteButton({ providerId, providerName }: Unfavorit
       onClick={handleClick}
       disabled={isPending}
       aria-label={`Remove ${providerName} from favorites`}
-      className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+      className="text-sm text-error font-semibold font-body disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:opacity-70"
     >
       {isPending ? 'Removing...' : 'Remove'}
     </button>
