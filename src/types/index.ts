@@ -94,6 +94,7 @@ export interface BookingTransitionResult {
 
 export interface BookingAsRequester {
   id: string
+  conversationId: string | null
   bookingNumber: string
   status: BookingStatus
   quotedRate: number | null
@@ -119,6 +120,7 @@ export interface BookingAsRequester {
 
 export interface BookingAsProvider {
   id: string
+  conversationId: string | null
   bookingNumber: string
   status: BookingStatus
   quotedRate: number | null

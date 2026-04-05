@@ -37,6 +37,7 @@ function createPrismaMock() {
     favorite: createModelMock(),
     payment: createModelMock(),
     $transaction: vi.fn(),
+    $executeRaw: vi.fn(),
   }
 }
 

@@ -4,11 +4,14 @@ import { redirect } from 'next/navigation'
 import type { BookingAsRequester, BookingAsProvider } from '@/types'
 import BookingActionButtons from './_components/BookingActionButtons'
 import ReviewButton from './_components/ReviewButton'
+import BookingTabs from './_components/BookingTabs'
 import PaymentCheckout from '@/components/PaymentCheckout'
 import { Badge } from '@/components/ui/Badge'
 import type { BadgeVariant } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/server'
+import { CalendarDays, MessageCircle, MapPin } from 'lucide-react'
+import ConfirmReceiptButton from './_components/ConfirmReceiptButton'
 
 const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
   PENDING: 'pending',
@@ -17,6 +20,152 @@ const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
   DISPUTED: 'pending',
+}
+
+function BookingCard({
+  booking,
+  variant,
+}: {
+  booking: BookingAsRequester | BookingAsProvider
+  variant: 'requester' | 'provider'
+}) {
+  const otherParty = variant === 'requester'
+    ? (booking as BookingAsRequester).provider?.displayName || 'Provider'
+    : (booking as BookingAsProvider).requester?.fullName || 'Customer'
+
+  const conversationId = booking.conversationId
+
+  return (
+    <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden">
+      {/* Card header with status accent */}
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-on-surface font-body text-[15px]">
+              {booking.category?.name || 'Service'}
+            </p>
+            <p className="text-sm text-on-surface-variant font-body mt-0.5">
+              {variant === 'requester' ? 'Provider' : 'From'}: {otherParty}
+            </p>
+          </div>
+          <Badge variant={STATUS_BADGE_VARIANT[booking.status] ?? 'info'}>
+            {booking.status.replace('_', ' ')}
+          </Badge>
+        </div>
+
+        {/* Meta row */}
+        <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 text-xs text-on-surface-variant font-body bg-surface-container px-2 py-0.5 rounded-md">
+            <CalendarDays className="w-3 h-3" />
+            {new Date(booking.createdAt).toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+            })}
+          </span>
+          <span className="text-xs text-on-surface-variant font-body bg-surface-container px-2 py-0.5 rounded-md">
+            #{booking.bookingNumber}
+          </span>
+          {booking.quotedRate && (
+            <span className="text-xs font-semibold text-primary font-body bg-primary-fixed/50 px-2 py-0.5 rounded-md">
+              ₹{booking.quotedRate}
+            </span>
+          )}
+        </div>
+
+        {booking.serviceAddress && (
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-on-surface-variant font-body">
+            <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
+            <span className="line-clamp-1">{booking.serviceAddress}</span>
+          </p>
+        )}
+
+        {booking.requesterNotes && (
+          <p className="mt-1.5 text-xs text-on-surface-variant font-body italic line-clamp-2">
+            &quot;{booking.requesterNotes}&quot;
+          </p>
+        )}
+      </div>
+
+      {/* Actions section */}
+      <div className="px-4 pb-4">
+        <BookingActionButtons bookingId={booking.id} actions={booking.actions} />
+
+        {/* Payment section (requester only) */}
+        {variant === 'requester' && booking.status === 'COMPLETED' &&
+          (booking as BookingAsRequester).paymentStatus === 'NONE' &&
+          (booking.finalAmount || booking.quotedRate) && (
+            <div className="mt-3 pt-3 border-t border-outline-variant/20">
+              <PaymentCheckout
+                bookingId={booking.id}
+                amount={booking.finalAmount ?? booking.quotedRate!}
+                bookingNumber={booking.bookingNumber}
+              />
+            </div>
+          )}
+
+        {variant === 'requester' && (booking as BookingAsRequester).paymentStatus === 'PENDING' && (
+          <div className="mt-3 pt-3 border-t border-outline-variant/20">
+            <p className="text-xs text-on-surface-variant font-body">
+              Payment submitted. Waiting for the provider to confirm receipt.
+            </p>
+          </div>
+        )}
+
+        {variant === 'provider' && booking.status === 'COMPLETED' &&
+          (booking as BookingAsProvider).paymentStatus === 'PENDING' && (
+            <div className="mt-3 pt-3 border-t border-outline-variant/20">
+              <ConfirmReceiptButton bookingId={booking.id} />
+            </div>
+          )}
+
+        {/* Paid badge */}
+        {((variant === 'requester' && (booking as BookingAsRequester).paymentStatus === 'COMPLETED') ||
+          (variant === 'provider' && (booking as BookingAsProvider).paymentStatus === 'COMPLETED')) && (
+          <div className="mt-2">
+            <Badge variant="completed">Paid</Badge>
+          </div>
+        )}
+
+        {/* Review (requester only) */}
+        {variant === 'requester' && (
+          <ReviewButton
+            bookingId={booking.id}
+            hasReview={(booking as BookingAsRequester).hasReview}
+            isCompleted={booking.status === 'COMPLETED'}
+          />
+        )}
+
+        {/* Message link */}
+        {conversationId && (
+          <div className="mt-3 pt-3 border-t border-outline-variant/20">
+            <Link href={`/chat/${conversationId}`}>
+              <Button variant="ghost" size="sm" className="gap-1.5">
+                <MessageCircle className="w-4 h-4" />
+                Message
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function EmptyBookings() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center mb-4">
+        <CalendarDays className="w-8 h-8 text-outline" />
+      </div>
+      <p className="text-on-surface font-body text-base font-semibold mb-1">No bookings yet</p>
+      <p className="text-on-surface-variant font-body text-sm mb-5 max-w-xs">
+        Find a provider and make your first booking!
+      </p>
+      <Link href="/browse">
+        <Button variant="primary" size="sm">Browse Providers</Button>
+      </Link>
+    </div>
+  )
 }
 
 export default async function BookingsPage() {
@@ -35,167 +184,48 @@ export default async function BookingsPage() {
   const hasBookings = asRequester.length > 0 || asProvider.length > 0
 
   return (
-    <div className="min-h-screen bg-surface pb-28">
-      {/* Frosted-glass header */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center">
+    <div className="min-h-screen bg-surface pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-60">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 lg:left-60 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 lg:px-6 h-14 flex items-center">
         <h1 className="font-headline font-bold text-base text-on-surface">
           My Bookings
         </h1>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 pt-14">
-
+      <div className="max-w-2xl lg:max-w-5xl mx-auto px-4 lg:px-8 pt-14 mt-4">
         {!hasBookings ? (
-          <div className="mt-8 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-[0_2px_8px_rgba(27,28,27,0.06)] p-8 text-center">
-            <p className="text-on-surface font-body text-lg mb-2">No bookings yet</p>
-            <p className="text-on-surface-variant font-body text-sm mb-6">
-              Find a provider and make your first booking!
-            </p>
-            <Link href="/browse">
-              <Button variant="primary" size="sm">Browse Providers</Button>
-            </Link>
-          </div>
+          <EmptyBookings />
         ) : (
-          <div className="space-y-6 mt-6">
-            {asRequester.length > 0 && (
-              <div>
-                <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide mb-3 font-body">
-                  Services I Booked ({asRequester.length})
-                </h2>
-                <div className="space-y-3">
+          <BookingTabs
+            requesterCount={asRequester.length}
+            providerCount={asProvider.length}
+            requesterContent={
+              asRequester.length === 0 ? (
+                <EmptyBookings />
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   {asRequester.map((booking: BookingAsRequester) => (
-                    <div
-                      key={booking.id}
-                      className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-[0_2px_8px_rgba(27,28,27,0.06)] p-4"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-on-surface font-body truncate">
-                            {booking.category?.name || 'Service'}
-                          </p>
-                          <p className="text-sm text-on-surface-variant font-body">
-                            Provider: {booking.provider?.displayName || 'N/A'}
-                          </p>
-                        </div>
-                        <Badge variant={STATUS_BADGE_VARIANT[booking.status] ?? 'info'}>
-                          {booking.status.replace('_', ' ')}
-                        </Badge>
-                      </div>
-
-                      <div className="mt-2 flex items-center gap-3 text-xs text-on-surface-variant font-body">
-                        <span>#{booking.bookingNumber}</span>
-                        {booking.quotedRate && <span>₹{booking.quotedRate}</span>}
-                        <span>{new Date(booking.createdAt).toLocaleDateString('en-IN')}</span>
-                      </div>
-
-                      {booking.serviceAddress && (
-                        <p className="mt-1 text-xs text-on-surface-variant font-body">
-                          📍 {booking.serviceAddress}
-                        </p>
-                      )}
-                      {booking.requesterNotes && (
-                        <p className="mt-1 text-xs text-on-surface-variant font-body italic">
-                          &quot;{booking.requesterNotes}&quot;
-                        </p>
-                      )}
-
-                      <BookingActionButtons bookingId={booking.id} actions={booking.actions} />
-
-                      {booking.status === 'COMPLETED' &&
-                        booking.paymentStatus !== 'COMPLETED' &&
-                        (booking.finalAmount || booking.quotedRate) && (
-                          <div className="mt-3 pt-3 border-t border-outline-variant/20">
-                            <PaymentCheckout
-                              bookingId={booking.id}
-                              amount={booking.finalAmount ?? booking.quotedRate!}
-                              bookingNumber={booking.bookingNumber}
-                            />
-                          </div>
-                        )}
-
-                      {booking.paymentStatus === 'COMPLETED' && (
-                        <div className="mt-2">
-                          <Badge variant="completed">Paid</Badge>
-                        </div>
-                      )}
-
-                      <ReviewButton
-                        bookingId={booking.id}
-                        hasReview={booking.hasReview}
-                        isCompleted={booking.status === 'COMPLETED'}
-                      />
-
-                      {booking.provider?.userId && (
-                        <div className="mt-3 pt-3 border-t border-outline-variant/20">
-                          <Link href={`/chat?userId=${booking.provider.userId}`}>
-                            <Button variant="ghost" size="sm">Message</Button>
-                          </Link>
-                        </div>
-                      )}
-                    </div>
+                    <BookingCard key={booking.id} booking={booking} variant="requester" />
                   ))}
                 </div>
-              </div>
-            )}
-
-            {asProvider.length > 0 && (
-              <div>
-                <h2 className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide mb-3 font-body">
-                  Bookings I Received ({asProvider.length})
-                </h2>
-                <div className="space-y-3">
+              )
+            }
+            providerContent={
+              asProvider.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="text-on-surface-variant font-body text-sm">
+                    No bookings received yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   {asProvider.map((booking: BookingAsProvider) => (
-                    <div
-                      key={booking.id}
-                      className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-[0_2px_8px_rgba(27,28,27,0.06)] p-4"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-on-surface font-body truncate">
-                            {booking.category?.name || 'Service'}
-                          </p>
-                          <p className="text-sm text-on-surface-variant font-body">
-                            From: {booking.requester?.fullName || 'Customer'}
-                          </p>
-                        </div>
-                        <Badge variant={STATUS_BADGE_VARIANT[booking.status] ?? 'info'}>
-                          {booking.status.replace('_', ' ')}
-                        </Badge>
-                      </div>
-
-                      <div className="mt-2 flex items-center gap-3 text-xs text-on-surface-variant font-body">
-                        <span>#{booking.bookingNumber}</span>
-                        {booking.quotedRate && <span>₹{booking.quotedRate}</span>}
-                        <span>{new Date(booking.createdAt).toLocaleDateString('en-IN')}</span>
-                      </div>
-
-                      {booking.serviceAddress && (
-                        <p className="mt-1 text-xs text-on-surface-variant font-body">
-                          📍 {booking.serviceAddress}
-                        </p>
-                      )}
-
-                      <BookingActionButtons bookingId={booking.id} actions={booking.actions} />
-
-                      {booking.paymentStatus === 'COMPLETED' && (
-                        <div className="mt-2">
-                          <Badge variant="completed">Paid</Badge>
-                        </div>
-                      )}
-
-                      {booking.requesterId && (
-                        <div className="mt-3 pt-3 border-t border-outline-variant/20">
-                          <Link href={`/chat?userId=${booking.requesterId}`}>
-                            <Button variant="ghost" size="sm">Message</Button>
-                          </Link>
-                        </div>
-                      )}
-                    </div>
+                    <BookingCard key={booking.id} booking={booking} variant="provider" />
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
+              )
+            }
+          />
         )}
       </div>
     </div>

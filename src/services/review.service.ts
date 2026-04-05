@@ -70,7 +70,7 @@ export async function submitReview(params: SubmitReviewParams): Promise<ReviewRe
 
       const newAvg = Math.round((aggregate._avg.rating ?? 0) * 100) / 100
       const newCount = aggregate._count.rating
-      const newSum = aggregate._sum.rating ?? 0
+      const newSum = aggregate._sum?.rating ?? 0
 
       await tx.providerProfile.update({
         where: { id: booking.provider.id },
@@ -83,6 +83,21 @@ export async function submitReview(params: SubmitReviewParams): Promise<ReviewRe
 
       return created
     })
+
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: revieweeId,
+          channel: 'IN_APP',
+          type: 'REVIEW_RECEIVED',
+          title: 'New Review Received',
+          body: `You received a ${rating}-star review${comment?.trim() ? `: "${comment.trim().slice(0, 80)}${comment.trim().length > 80 ? '...' : ''}"` : '.'}`,
+          data: { bookingId, reviewId: review.id },
+        },
+      })
+    } catch (notifError) {
+      console.error('[submitReview] notification failed:', notifError)
+    }
 
     return {
       success: true,

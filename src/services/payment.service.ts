@@ -471,15 +471,21 @@ export async function confirmOfflinePayment(
         ? Number(booking.quotedRate)
         : 0
 
-    // Upsert: update existing PENDING record or create new one
+    // Requester confirmation is only a claim. Provider must confirm receipt
+    // before the payment becomes completed and counts toward earnings.
     if (booking.payment) {
       await prisma.payment.update({
         where: { id: booking.payment.id },
         data: {
-          status: 'COMPLETED',
+          status: 'PENDING',
           paymentMethod,
           amount,
-          paidAt: new Date(),
+          paidAt: null,
+          gatewayResponse: {
+            kind: 'offline_requester_confirmation',
+            requestedAt: new Date().toISOString(),
+            paymentMethod,
+          },
         },
       })
     } else {
@@ -489,22 +495,27 @@ export async function confirmOfflinePayment(
           idempotencyKey: `offline-${booking.id}`,
           amount,
           paymentMethod,
-          status: 'COMPLETED',
-          paidAt: new Date(),
+          status: 'PENDING',
+          paidAt: null,
+          gatewayResponse: {
+            kind: 'offline_requester_confirmation',
+            requestedAt: new Date().toISOString(),
+            paymentMethod,
+          },
         },
       })
     }
 
-    // Notify provider that payment was confirmed (non-fatal)
+    // Notify provider that the requester says they paid offline.
     try {
       await prisma.notification.create({
         data: {
           userId: booking.provider.userId,
           channel: 'IN_APP',
           type: 'PAYMENT_RECEIVED',
-          title: 'Payment Confirmed',
-          body: `The requester confirmed payment of ₹${amount} for your booking.`,
-          data: { bookingId },
+          title: 'Payment Pending Confirmation',
+          body: `The requester marked ₹${amount} as paid. Please confirm receipt to finalize it.`,
+          data: { bookingId, status: 'PENDING' },
         },
       })
     } catch (notifError) {
@@ -515,5 +526,66 @@ export async function confirmOfflinePayment(
   } catch (error) {
     console.error('[confirmOfflinePayment] failed:', error)
     return { success: false, error: 'Failed to confirm payment. Please try again.' }
+  }
+}
+
+export async function finalizeOfflinePayment(
+  bookingId: string,
+  userId: string
+): Promise<ConfirmPaymentResult> {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        requesterId: true,
+        provider: { select: { userId: true } },
+        payment: { select: { id: true, status: true, amount: true } },
+      },
+    })
+
+    if (!booking) {
+      return { success: false, error: 'Booking not found.' }
+    }
+
+    if (booking.provider.userId !== userId) {
+      return { success: false, error: 'Only the provider can confirm receipt of payment.' }
+    }
+
+    if (!booking.payment) {
+      return { success: false, error: 'No payment confirmation is pending for this booking.' }
+    }
+
+    if (booking.payment.status === 'COMPLETED') {
+      return { success: false, error: 'Payment has already been finalized.' }
+    }
+
+    await prisma.payment.update({
+      where: { id: booking.payment.id },
+      data: {
+        status: 'COMPLETED',
+        paidAt: new Date(),
+      },
+    })
+
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: booking.requesterId,
+          channel: 'IN_APP',
+          type: 'PAYMENT_RECEIVED',
+          title: 'Payment Confirmed',
+          body: `Your payment of ₹${Number(booking.payment.amount)} has been confirmed by the provider.`,
+          data: { bookingId, status: 'COMPLETED' },
+        },
+      })
+    } catch (notifError) {
+      console.error('[finalizeOfflinePayment] notification failed:', notifError)
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('[finalizeOfflinePayment] failed:', error)
+    return { success: false, error: 'Failed to finalize payment. Please try again.' }
   }
 }

@@ -1,6 +1,6 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Star, MapPin } from 'lucide-react'
+import { ArrowLeft, Star, MapPin, BadgeCheck, Briefcase } from 'lucide-react'
 import { requireAuthUser } from '@/lib/auth'
 import { getProviderById } from '@/app/actions/provider'
 import { isFavorited } from '@/app/actions/favorite'
@@ -8,9 +8,8 @@ import { getProviderReviews } from '@/app/actions/review'
 import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
 import FavoriteButton from './FavoriteButton'
+import BookButton from '@/app/browse/BookButton'
 import type { ReviewItem } from '@/types'
-
-// ─── Avatar helpers (same palette as ProviderCard) ───────────────────────────
 
 const AVATAR_COLORS = [
   'bg-primary-fixed text-on-primary-fixed',
@@ -34,32 +33,20 @@ function getInitials(name: string): string {
 
 function rateLabel(rateType: string | null): string {
   switch (rateType) {
-    case 'HOURLY':
-      return '/hr'
-    case 'PER_VISIT':
-      return '/visit'
-    case 'PER_KG':
-      return '/kg'
-    case 'FIXED':
-      return ' fixed'
-    default:
-      return ''
+    case 'HOURLY': return '/hr'
+    case 'PER_VISIT': return '/visit'
+    case 'PER_KG': return '/kg'
+    case 'FIXED': return ' fixed'
+    default: return ''
   }
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 interface ProviderPageProps {
   params: Promise<{ id: string }>
 }
 
 export default async function ProviderPage({ params }: ProviderPageProps) {
-  try {
-    await requireAuthUser()
-  } catch (error) {
-    console.error('[ProviderPage] Auth check failed:', error)
-    redirect('/welcome')
-  }
+  const authUser = await requireAuthUser()
 
   const { id } = await params
   const provider = await getProviderById(id)
@@ -73,11 +60,13 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
   const name = provider.displayName
   const rating = provider.ratingAvg
   const reviewCount = provider.ratingCount
+  const isOwnProfile = provider.userId === authUser.id
+  const canBook = !isOwnProfile && provider.isAvailable && provider.services.length > 0
 
   return (
-    <div className="min-h-screen bg-surface pb-28">
+    <div className="min-h-screen bg-surface pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-8 lg:pl-60">
       {/* Fixed header */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center gap-3">
+      <header className="fixed top-0 left-0 right-0 lg:left-60 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 lg:px-6 h-14 flex items-center gap-3">
         <Link
           href="/browse"
           aria-label="Back to browse"
@@ -85,16 +74,16 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
         >
           <ArrowLeft className="w-5 h-5 text-on-surface" />
         </Link>
-        <span className="font-headline font-bold text-base text-on-surface">
+        <span className="font-headline font-bold text-base text-on-surface truncate">
           Provider Profile
         </span>
       </header>
 
       <div className="pt-14">
-        {/* Hero avatar */}
+        {/* Hero avatar — shorter on mobile, side on desktop */}
         <div
           className={cn(
-            'w-full h-52 flex items-center justify-center text-6xl font-bold font-headline select-none',
+            'w-full h-40 lg:h-48 flex items-center justify-center text-5xl lg:text-6xl font-bold font-headline select-none',
             getAvatarColor(name)
           )}
           aria-hidden="true"
@@ -102,61 +91,49 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
           {getInitials(name)}
         </div>
 
-        <div className="px-4 py-6 space-y-6">
-          {/* Name + status */}
+        <div className="px-4 lg:px-8 py-5 space-y-5 max-w-4xl mx-auto">
+          {/* Name + badges */}
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="font-headline text-2xl font-extrabold text-on-surface">
+              <h1 className="font-headline text-xl font-extrabold text-on-surface">
                 {name}
               </h1>
               {provider.isVerified && (
-                <Badge variant="verified">✓ Verified</Badge>
+                <BadgeCheck className="w-5 h-5 text-primary" />
               )}
               {!provider.isAvailable && (
                 <Badge variant="pending">Unavailable</Badge>
               )}
             </div>
 
-            {/* Primary service category */}
             {provider.services.length > 0 && (
               <p className="mt-1 text-sm text-on-surface-variant font-body">
                 {provider.services[0].category.name}
               </p>
             )}
 
-            {/* Rating row */}
-            <div className="flex items-center gap-4 mt-3">
+            {/* Stats row */}
+            <div className="mt-3 flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="flex items-center gap-1">
-                {/* Amber is intentional for star ratings — consistent with ProviderCard */}
-                <Star className="w-4 h-4 fill-[#f59e0b] text-[#f59e0b]" />
-                <span className="text-sm font-semibold text-on-surface">
+                <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                <span className="text-sm font-semibold text-on-surface font-body">
                   {rating.toFixed(1)}
                 </span>
                 <span className="text-sm text-on-surface-variant font-body">
-                  ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
+                  ({reviewCount})
                 </span>
               </div>
-              <span className="text-sm text-on-surface-variant font-body">
-                {provider.completedBookings} jobs done
-              </span>
+              <div className="flex items-center gap-1 text-sm text-on-surface-variant font-body">
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>{provider.completedBookings} jobs</span>
+              </div>
             </div>
-          </div>
-
-          {/* Base rate */}
-          <div className="bg-surface-container rounded-2xl p-4 flex items-center justify-between">
-            <span className="text-sm text-on-surface-variant font-body">
-              Base rate
-            </span>
-            <span className="font-headline text-xl font-bold text-primary">
-              ₹{provider.baseRate}
-              <span className="text-sm font-body text-on-surface-variant">/hr</span>
-            </span>
           </div>
 
           {/* Bio */}
           {provider.bio && (
             <div>
-              <h2 className="font-headline text-base font-bold text-on-surface mb-2">
+              <h2 className="font-headline text-sm font-bold text-on-surface mb-2">
                 About
               </h2>
               <p className="text-sm text-on-surface-variant font-body leading-relaxed">
@@ -165,17 +142,17 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
             </div>
           )}
 
-          {/* Services offered */}
+          {/* Services */}
           {provider.services.length > 0 && (
             <div>
-              <h2 className="font-headline text-base font-bold text-on-surface mb-3">
+              <h2 className="font-headline text-sm font-bold text-on-surface mb-2.5">
                 Services offered
               </h2>
               <div className="flex flex-col gap-2">
                 {provider.services.map((service) => (
                   <div
                     key={service.id}
-                    className="bg-surface-container rounded-xl p-3 flex items-center justify-between"
+                    className="bg-surface-container rounded-xl p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-on-surface font-body">
@@ -188,7 +165,7 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
                       )}
                     </div>
                     {service.customRate !== null && (
-                      <span className="shrink-0 text-sm font-semibold text-primary font-body">
+                      <span className="shrink-0 text-sm font-semibold text-primary font-body self-start sm:self-auto">
                         ₹{service.customRate}
                         <span className="text-xs font-normal text-on-surface-variant">
                           {rateLabel(service.rateType)}
@@ -204,7 +181,7 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
           {/* Service areas */}
           {provider.areas.length > 0 && (
             <div>
-              <h2 className="font-headline text-base font-bold text-on-surface mb-3">
+              <h2 className="font-headline text-sm font-bold text-on-surface mb-2.5">
                 Service areas
               </h2>
               <div className="flex flex-wrap gap-2">
@@ -231,27 +208,27 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
 
           {/* Reviews */}
           <div>
-            <h2 className="font-headline text-base font-bold text-on-surface mb-3">
+            <h2 className="font-headline text-sm font-bold text-on-surface mb-2.5">
               Reviews
               {reviews.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-on-surface-variant font-body">
+                <span className="ml-1.5 text-sm font-normal text-on-surface-variant font-body">
                   ({reviews.length})
                 </span>
               )}
             </h2>
 
             {reviews.length === 0 ? (
-              <div className="bg-surface-container rounded-2xl p-6 text-center">
+              <div className="bg-surface-container rounded-xl p-5 text-center">
                 <p className="text-sm text-on-surface-variant font-body">
                   No reviews yet.
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2.5">
                 {(reviews as ReviewItem[]).map((review) => (
                   <div
                     key={review.id}
-                    className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-4"
+                    className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-3.5"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -267,15 +244,19 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
                           })}
                         </p>
                       </div>
-                      <p
-                        className="shrink-0 text-sm text-[#f59e0b]"
-                        aria-label={`Rating: ${review.rating} out of 5`}
-                      >
-                        {'★'.repeat(review.rating)}
-                        <span className="text-outline-variant">
-                          {'★'.repeat(5 - review.rating)}
-                        </span>
-                      </p>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={cn(
+                              'w-3.5 h-3.5',
+                              i < review.rating
+                                ? 'fill-amber-500 text-amber-500'
+                                : 'text-outline-variant'
+                            )}
+                          />
+                        ))}
+                      </div>
                     </div>
                     {review.comment && (
                       <p className="mt-2 text-sm text-on-surface-variant font-body leading-relaxed">
@@ -290,21 +271,36 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
         </div>
       </div>
 
-      {/* Sticky bottom actions */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-outline-variant/20 px-4 py-4 flex items-center gap-3">
-        <FavoriteButton providerId={provider.id} initialFavorited={favorited} />
-        <Link
-          href={`/bookings?providerId=${id}`}
-          className={cn(
-            'flex-1 inline-flex items-center justify-center gap-2',
-            'bg-brand-gradient text-on-primary font-semibold font-body',
-            'px-6 py-3 text-base rounded-2xl shadow-sm',
-            'hover:opacity-90 active:opacity-80 transition-all duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
-          )}
-        >
-          Book Now
-        </Link>
+      {/* Sticky bottom actions — above BottomNav on mobile, at bottom on desktop */}
+      <div className="fixed bottom-16 lg:bottom-0 left-0 lg:left-60 right-0 z-30 bg-surface-container-lowest/95 backdrop-blur-md border-t border-outline-variant/20">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 px-4 lg:px-8 py-3 max-w-4xl mx-auto">
+          <FavoriteButton providerId={provider.id} initialFavorited={favorited} />
+          <div className="flex-1">
+            {canBook ? (
+              <BookButton
+                providerId={provider.id}
+                providerName={provider.displayName}
+                services={provider.services}
+                baseRate={provider.baseRate}
+              />
+            ) : (
+              <div
+                className={cn(
+                  'w-full rounded-xl px-4 py-3 text-center text-sm font-medium font-body border',
+                  isOwnProfile || !provider.isAvailable
+                    ? 'bg-surface-container text-on-surface-variant border-outline-variant/30'
+                    : 'bg-surface-container text-on-surface-variant border-outline-variant/30'
+                )}
+              >
+                {isOwnProfile
+                  ? 'This is your profile'
+                  : !provider.isAvailable
+                  ? 'Currently unavailable for bookings'
+                  : 'No active services available to book'}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

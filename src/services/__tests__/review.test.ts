@@ -72,6 +72,7 @@ describe('submitReview', () => {
     tx.review.aggregate.mockResolvedValue({
       _avg: { rating: 4.5 },
       _count: { rating: 10 },
+      _sum: { rating: 45 },
     })
     tx.providerProfile.update.mockResolvedValue({})
 
@@ -91,7 +92,7 @@ describe('submitReview', () => {
 
     expect(tx.providerProfile.update).toHaveBeenCalledWith({
       where: { id: PROVIDER_PROFILE_ID },
-      data: { ratingAvg: 4.5, ratingCount: 10 },
+      data: { ratingAvg: 4.5, ratingCount: 10, ratingSum: 45 },
     })
   })
 
@@ -105,6 +106,7 @@ describe('submitReview', () => {
     tx.review.aggregate.mockResolvedValue({
       _avg: { rating: 4.333333 },
       _count: { rating: 3 },
+      _sum: { rating: 13 },
     })
     tx.providerProfile.update.mockResolvedValue({})
 
@@ -112,7 +114,7 @@ describe('submitReview', () => {
 
     expect(tx.providerProfile.update).toHaveBeenCalledWith({
       where: { id: PROVIDER_PROFILE_ID },
-      data: { ratingAvg: 4.33, ratingCount: 3 },
+      data: { ratingAvg: 4.33, ratingCount: 3, ratingSum: 13 },
     })
   })
 
@@ -126,6 +128,7 @@ describe('submitReview', () => {
     tx.review.aggregate.mockResolvedValue({
       _avg: { rating: null },
       _count: { rating: 0 },
+      _sum: { rating: null },
     })
     tx.providerProfile.update.mockResolvedValue({})
 
@@ -133,7 +136,7 @@ describe('submitReview', () => {
 
     expect(tx.providerProfile.update).toHaveBeenCalledWith({
       where: { id: PROVIDER_PROFILE_ID },
-      data: { ratingAvg: 0, ratingCount: 0 },
+      data: { ratingAvg: 0, ratingCount: 0, ratingSum: 0 },
     })
   })
 

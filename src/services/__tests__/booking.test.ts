@@ -67,7 +67,7 @@ describe('computeBookingActions', () => {
       const actions = computeBookingActions('IN_PROGRESS', REQUESTER_ID, REQUESTER_ID, PROVIDER_USER_ID)
       expect(actions.canDispute).toBe(true)
       expect(actions.canComplete).toBe(false)
-      expect(actions.canCancel).toBe(false)
+      expect(actions.canCancel).toBe(true)
     })
   })
 
@@ -112,7 +112,7 @@ describe('transitionBookingStatus', () => {
     prismaMock.booking.findUnique.mockResolvedValue(null)
 
     const result = await transitionBookingStatus(BOOKING_ID, 'CONFIRMED', PROVIDER_USER_ID)
-    expect(result).toEqual({ success: false, error: 'Booking not found.' })
+    expect(result).toEqual({ success: false, error: 'This booking no longer exists. It may have been deleted.' })
   })
 
   it('rejects invalid status transition', async () => {
@@ -121,7 +121,7 @@ describe('transitionBookingStatus', () => {
     const result = await transitionBookingStatus(BOOKING_ID, 'COMPLETED', PROVIDER_USER_ID)
     expect(result).toEqual({
       success: false,
-      error: 'Cannot transition from PENDING to COMPLETED.',
+      error: 'This booking is currently pending and cannot be updated to completed.',
     })
   })
 
@@ -131,7 +131,7 @@ describe('transitionBookingStatus', () => {
     const result = await transitionBookingStatus(BOOKING_ID, 'CONFIRMED', PROVIDER_USER_ID)
     expect(result).toEqual({
       success: false,
-      error: 'Cannot transition from CANCELLED to CONFIRMED.',
+      error: 'This booking is currently cancelled and cannot be updated to confirmed.',
     })
   })
 
@@ -151,7 +151,7 @@ describe('transitionBookingStatus', () => {
     const result = await transitionBookingStatus(BOOKING_ID, 'CONFIRMED', REQUESTER_ID)
     expect(result).toEqual({
       success: false,
-      error: 'Only the provider can perform this action.',
+      error: 'Only the service provider can perform this action.',
     })
   })
 
@@ -163,6 +163,7 @@ describe('transitionBookingStatus', () => {
     tx.booking.updateMany.mockResolvedValue({ count: 1 })
     tx.bookingStatusLog.create.mockResolvedValue({})
     tx.notification.create.mockResolvedValue({})
+    tx.$executeRaw.mockResolvedValue(1)
 
     const result = await transitionBookingStatus(BOOKING_ID, 'CONFIRMED', PROVIDER_USER_ID)
     expect(result).toEqual({

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { addProviderService } from '@/app/actions/provider'
 import { CATEGORY_LUCIDE_ICONS } from '@/lib/constants'
 import { LayoutGrid } from 'lucide-react'
@@ -37,7 +38,7 @@ export default function AddServiceForm({ categories }: { categories: ServiceCate
         <p className="font-body text-sm font-medium text-on-surface-variant mb-2">
           Service Category *
         </p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {categories.map((cat) => {
             const Icon = CATEGORY_LUCIDE_ICONS[cat.slug] ?? LayoutGrid
             const isSelected = selectedCategory === cat.id
@@ -129,12 +130,12 @@ export default function AddServiceForm({ categories }: { categories: ServiceCate
         {loading ? 'Adding Service...' : 'Add Service'}
       </Button>
 
-      <a
+      <Link
         href="/provider/dashboard"
         className="block text-center font-body text-sm text-on-surface-variant hover:text-on-surface transition-colors"
       >
         Skip — go to dashboard
-      </a>
+      </Link>
     </form>
   )
 }

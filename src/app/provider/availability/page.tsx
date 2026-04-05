@@ -43,9 +43,9 @@ export default async function AvailabilityPage() {
   const toValue = formatTimeValue(profile.availableTo)
 
   return (
-    <div className="min-h-screen bg-surface pb-28">
+    <div className="min-h-screen bg-surface pb-20 lg:pb-0 lg:pl-60">
       {/* Frosted-glass header */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center gap-3">
+      <div className="fixed top-0 left-0 right-0 lg:left-60 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 lg:px-6 h-14 flex items-center gap-3">
         <Link
           href="/provider/dashboard"
           className="text-sm font-body text-primary hover:underline"

@@ -87,23 +87,25 @@ export default function AvailabilityForm({
         </p>
 
         <form onSubmit={handleHoursSubmit} className="mt-4 space-y-4">
-          <Input
-            id="availableFrom"
-            name="availableFrom"
-            type="time"
-            label="From"
-            defaultValue={availableFrom}
-            required
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="availableFrom"
+              name="availableFrom"
+              type="time"
+              label="From"
+              defaultValue={availableFrom}
+              required
+            />
 
-          <Input
-            id="availableTo"
-            name="availableTo"
-            type="time"
-            label="To"
-            defaultValue={availableTo}
-            required
-          />
+            <Input
+              id="availableTo"
+              name="availableTo"
+              type="time"
+              label="To"
+              defaultValue={availableTo}
+              required
+            />
+          </div>
 
           <Button
             type="submit"

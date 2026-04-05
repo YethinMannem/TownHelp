@@ -23,9 +23,9 @@ export default function RegisterProviderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface pb-28">
+    <div className="min-h-screen bg-surface pb-20 lg:pb-0 lg:pl-60">
       {/* Frosted-glass fixed header */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center gap-3">
+      <div className="fixed top-0 left-0 right-0 lg:left-60 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 lg:px-6 h-14 flex items-center gap-3">
         <Link href="/" className="text-sm font-body text-primary hover:underline">
           ← Home
         </Link>
@@ -72,6 +72,24 @@ export default function RegisterProviderPage() {
             label="Primary Service Area"
             placeholder="e.g. Madhapur, Gachibowli"
           />
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              id="city"
+              name="city"
+              label="City *"
+              required
+              placeholder="e.g. Hyderabad"
+            />
+
+            <Input
+              id="state"
+              name="state"
+              label="State *"
+              required
+              placeholder="e.g. Telangana"
+            />
+          </div>
 
           <div className="flex flex-col gap-1.5">
             <label

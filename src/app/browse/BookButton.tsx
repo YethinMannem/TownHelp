@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createBooking } from '@/app/actions/booking'
+import { Button } from '@/components/ui/Button'
 import type { ProviderServiceItem } from '@/types'
 
 export default function BookButton({
@@ -33,21 +34,25 @@ export default function BookButton({
 
   if (!showForm) {
     return (
-      <button
+      <Button
         onClick={() => setShowForm(true)}
-        className="w-full py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+        variant="primary"
+        size="sm"
+        className="w-full"
       >
         Book {providerName}
-      </button>
+      </Button>
     )
   }
 
   return (
-    <div className="border-t border-gray-100 pt-4 mt-2">
-      <h4 className="font-medium text-gray-800 mb-3">Book {providerName}</h4>
+    <div className="border-t border-outline-variant/20 pt-4 mt-2">
+      <h4 className="font-semibold text-on-surface font-body text-sm mb-3">
+        Book {providerName}
+      </h4>
 
       {error && (
-        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+        <div className="mb-3 p-3 bg-error-container rounded-xl text-on-error-container text-sm font-body">
           {error}
         </div>
       )}
@@ -62,7 +67,7 @@ export default function BookButton({
 
         {services.length > 1 ? (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-on-surface-variant font-body mb-1.5">
               Service
             </label>
             <select
@@ -71,7 +76,7 @@ export default function BookButton({
                 const found = services.find((s) => s.category?.id === e.target.value)
                 setSelectedService(found || null)
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-3.5 py-2.5 text-sm font-body bg-surface-container rounded-xl text-on-surface border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             >
               {services.map((s) => (
                 <option key={s.category?.id} value={s.category?.id}>
@@ -85,7 +90,7 @@ export default function BookButton({
         )}
 
         <div>
-          <label htmlFor={`address-${providerId}`} className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor={`address-${providerId}`} className="block text-xs font-medium text-on-surface-variant font-body mb-1.5">
             Service Address
           </label>
           <input
@@ -93,12 +98,12 @@ export default function BookButton({
             id={`address-${providerId}`}
             name="serviceAddress"
             placeholder="e.g. Flat 302, Cyber Heights, Madhapur"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full px-3.5 py-2.5 text-sm font-body bg-surface-container rounded-xl text-on-surface placeholder-on-surface-variant/60 border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
           />
         </div>
 
         <div>
-          <label htmlFor={`notes-${providerId}`} className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor={`notes-${providerId}`} className="block text-xs font-medium text-on-surface-variant font-body mb-1.5">
             Notes (optional)
           </label>
           <input
@@ -106,25 +111,29 @@ export default function BookButton({
             id={`notes-${providerId}`}
             name="notes"
             placeholder="e.g. Need help with AC repair in bedroom"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full px-3.5 py-2.5 text-sm font-body bg-surface-container rounded-xl text-on-surface placeholder-on-surface-variant/60 border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
           />
         </div>
 
-        <div className="flex gap-2">
-          <button
+        <div className="flex gap-2 pt-1">
+          <Button
             type="submit"
             disabled={loading}
-            className="flex-1 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300 text-sm"
+            loading={loading}
+            variant="primary"
+            size="sm"
+            className="flex-1"
           >
-            {loading ? 'Booking...' : `Confirm Booking · ₹${selectedService?.customRate || baseRate}`}
-          </button>
-          <button
+            {loading ? 'Booking...' : `Confirm · ₹${selectedService?.customRate || baseRate}`}
+          </Button>
+          <Button
             type="button"
             onClick={() => setShowForm(false)}
-            className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+            variant="ghost"
+            size="sm"
           >
             Cancel
-          </button>
+          </Button>
         </div>
       </form>
     </div>

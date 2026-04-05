@@ -35,6 +35,8 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
   const baseRate = parseFloat(formData.get('baseRate') as string)
   const bio = formData.get('bio') as string
   const areaName = formData.get('areaName') as string
+  const city = formData.get('city') as string
+  const state = formData.get('state') as string
 
   if (!displayName?.trim() || isNaN(baseRate) || baseRate <= 0) {
     throw new Error('Display name and a valid base rate are required.')
@@ -42,6 +44,10 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
 
   if (!areaName?.trim()) {
     throw new Error('Service area is required so customers can find you.')
+  }
+
+  if (!city?.trim() || !state?.trim()) {
+    throw new Error('City and state are required so customers see your correct service location.')
   }
 
   // Transactional: profile + service area succeed or fail together
@@ -66,9 +72,21 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
       data: {
         providerId: profile.id,
         areaName: areaName.trim(),
-        city: 'Hyderabad',
-        state: 'Telangana',
+        city: city.trim(),
+        state: state.trim(),
         isPrimary: true,
+      },
+    })
+
+    await tx.user.update({
+      where: { id: authUser.id },
+      data: {
+        metadata: {
+          locationLabel: `${areaName.trim()}, ${city.trim()}`,
+          areaName: areaName.trim(),
+          city: city.trim(),
+          state: state.trim(),
+        },
       },
     })
   })
@@ -212,18 +230,33 @@ export async function addServiceArea(formData: FormData): Promise<void> {
   const profile = await requireProviderProfile(authUser.id)
 
   const areaName = formData.get('areaName') as string
+  const city = formData.get('city') as string
+  const state = formData.get('state') as string
   const pincode = formData.get('pincode') as string
 
   if (!areaName?.trim()) {
     throw new Error('Area name is required.')
   }
 
+  const fallbackArea = await prisma.serviceArea.findFirst({
+    where: { providerId: profile.id },
+    select: { city: true, state: true },
+    orderBy: { isPrimary: 'desc' },
+  })
+
+  const resolvedCity = city?.trim() || fallbackArea?.city
+  const resolvedState = state?.trim() || fallbackArea?.state
+
+  if (!resolvedCity || !resolvedState) {
+    throw new Error('City and state are required for each service area.')
+  }
+
   await prisma.serviceArea.create({
     data: {
       providerId: profile.id,
       areaName: areaName.trim(),
-      city: 'Hyderabad',
-      state: 'Telangana',
+      city: resolvedCity,
+      state: resolvedState,
       pincode: pincode?.trim() || null,
       isPrimary: false,
     },

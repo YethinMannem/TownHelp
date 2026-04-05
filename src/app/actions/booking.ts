@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { requireAuthUser } from '@/lib/auth'
 import { transitionBookingStatus, computeBookingActions } from '@/services/booking.service'
-import { confirmOfflinePayment } from '@/services/payment.service'
+import { confirmOfflinePayment, finalizeOfflinePayment } from '@/services/payment.service'
 import { isValidUUID } from '@/lib/validation'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getProviderDashboardStats as fetchDashboardStats } from '@/services/dashboard.service'
@@ -178,7 +178,6 @@ export async function createBooking(formData: FormData): Promise<void> {
     select: {
       userId: true,
       serviceAreas: {
-        where: { city: 'Hyderabad' },
         select: { id: true },
         take: 1,
       },
@@ -201,8 +200,8 @@ export async function createBooking(formData: FormData): Promise<void> {
   }
 
   if (provider.serviceAreas.length === 0) {
-    console.error(`[createBooking] Provider ${providerId} has no Hyderabad service areas`)
-    throw new Error('This provider does not currently serve the Hyderabad area.')
+    console.error(`[createBooking] Provider ${providerId} has no service areas configured`)
+    throw new Error('This provider does not currently have any service areas configured.')
   }
 
   if (provider.services.length === 0) {
@@ -212,6 +211,8 @@ export async function createBooking(formData: FormData): Promise<void> {
 
   // Retry on booking number collision (extremely unlikely but handled)
   const MAX_RETRIES = 3
+  let createdBookingId: string | null = null
+  let createdBookingNumber: string | null = null
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const now = new Date()
     const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '')
@@ -234,6 +235,9 @@ export async function createBooking(formData: FormData): Promise<void> {
           },
           select: { id: true },
         })
+
+        createdBookingId = booking.id
+        createdBookingNumber = bookingNumber
 
         await tx.bookingStatusLog.create({
           data: {
@@ -270,6 +274,30 @@ export async function createBooking(formData: FormData): Promise<void> {
     }
   }
 
+  try {
+    const providerProfile = await prisma.providerProfile.findUnique({
+      where: { id: providerId },
+      select: { userId: true, displayName: true },
+    })
+
+    if (providerProfile) {
+      await prisma.notification.create({
+        data: {
+          userId: providerProfile.userId,
+          channel: 'IN_APP',
+          type: 'BOOKING_REQUEST',
+          title: 'New Booking Request',
+          body: createdBookingNumber
+            ? `You have a new booking request for ${createdBookingNumber}.`
+            : 'You have a new booking request.',
+          data: { bookingId: createdBookingId, providerId, categoryId },
+        },
+      })
+    }
+  } catch (notifError) {
+    console.error('[createBooking] notification failed:', notifError)
+  }
+
   redirect('/bookings')
 }
 
@@ -278,6 +306,7 @@ export async function getMyBookings(): Promise<MyBookings> {
 
   const bookingSelect = {
     id: true,
+    conversation: { select: { id: true } },
     bookingNumber: true,
     status: true,
     quotedRate: true,
@@ -332,6 +361,7 @@ export async function getMyBookings(): Promise<MyBookings> {
   return {
     asRequester: asRequester.map((b) => ({
       id: b.id,
+      conversationId: b.conversation?.id ?? null,
       bookingNumber: b.bookingNumber,
       status: b.status,
       quotedRate: b.quotedRate ? Number(b.quotedRate) : null,
@@ -350,6 +380,7 @@ export async function getMyBookings(): Promise<MyBookings> {
     })),
     asProvider: asProviderRaw.map((b) => ({
       id: b.id,
+      conversationId: b.conversation?.id ?? null,
       bookingNumber: b.bookingNumber,
       status: b.status,
       quotedRate: b.quotedRate ? Number(b.quotedRate) : null,
@@ -444,6 +475,21 @@ export async function confirmPayment(
   })
   if (!allowed) return { success: false, error: 'Too many requests. Please wait.' }
   const result = await confirmOfflinePayment(bookingId, userId, paymentMethod)
+  if (result.success) revalidatePath('/bookings')
+  return result
+}
+
+export async function confirmPaymentReceived(
+  bookingId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!isValidUUID(bookingId)) return { success: false, error: 'Invalid booking ID.' }
+  const { id: userId } = await requireAuthUser()
+  const { allowed } = checkRateLimit(`${userId}:confirmPaymentReceived`, {
+    maxRequests: 10,
+    windowMs: 60_000,
+  })
+  if (!allowed) return { success: false, error: 'Too many requests. Please wait.' }
+  const result = await finalizeOfflinePayment(bookingId, userId)
   if (result.success) revalidatePath('/bookings')
   return result
 }
