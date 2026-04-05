@@ -13,19 +13,34 @@ const MAX_MESSAGE_LENGTH = 2000
 // =============================================================================
 
 export async function getConversations(userId: string): Promise<ConversationItem[]> {
-  // Find all conversations where user is requester or provider
-  const providerProfile = await prisma.providerProfile.findUnique({
-    where: { userId, deletedAt: null },
-    select: { id: true },
-  })
+  return getConversationsForViewer(userId)
+}
+
+function buildConversationScope(userId: string, providerProfileId?: string | null) {
+  return {
+    OR: [
+      { requesterId: userId },
+      ...(providerProfileId ? [{ providerId: providerProfileId }] : []),
+    ],
+  }
+}
+
+export async function getConversationsForViewer(
+  userId: string,
+  providerProfileId?: string | null
+): Promise<ConversationItem[]> {
+  const resolvedProviderProfileId =
+    providerProfileId === undefined
+      ? (
+          await prisma.providerProfile.findUnique({
+            where: { userId, deletedAt: null },
+            select: { id: true },
+          })
+        )?.id ?? null
+      : providerProfileId
 
   const conversations = await prisma.conversation.findMany({
-    where: {
-      OR: [
-        { requesterId: userId },
-        ...(providerProfile ? [{ providerId: providerProfile.id }] : []),
-      ],
-    },
+    where: buildConversationScope(userId, resolvedProviderProfileId),
     select: {
       id: true,
       requesterId: true,
@@ -94,6 +109,112 @@ export async function getConversations(userId: string): Promise<ConversationItem
   })
 }
 
+export async function getUnreadMessageCount(userId: string): Promise<number> {
+  return getUnreadMessageCountForViewer(userId)
+}
+
+export async function getUnreadMessageCountForViewer(
+  userId: string,
+  providerProfileId?: string | null
+): Promise<number> {
+  const resolvedProviderProfileId =
+    providerProfileId === undefined
+      ? (
+          await prisma.providerProfile.findUnique({
+            where: { userId, deletedAt: null },
+            select: { id: true },
+          })
+        )?.id ?? null
+      : providerProfileId
+
+  return prisma.message.count({
+    where: {
+      isRead: false,
+      senderId: { not: userId },
+      conversation: buildConversationScope(userId, resolvedProviderProfileId),
+    },
+  })
+}
+
+export async function getConversationSummary(
+  conversationId: string,
+  userId: string
+): Promise<ConversationItem | null> {
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    select: {
+      id: true,
+      requesterId: true,
+      lastMessageAt: true,
+      createdAt: true,
+      booking: {
+        select: {
+          id: true,
+          bookingNumber: true,
+          status: true,
+          requester: {
+            select: { fullName: true },
+          },
+          category: {
+            select: { name: true, iconName: true },
+          },
+        },
+      },
+      provider: {
+        select: {
+          displayName: true,
+          userId: true,
+        },
+      },
+      messages: {
+        select: { content: true, createdAt: true, senderId: true },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+      _count: {
+        select: {
+          messages: {
+            where: {
+              isRead: false,
+              senderId: { not: userId },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!conversation) return null
+
+  const isParticipant =
+    conversation.requesterId === userId ||
+    conversation.provider.userId === userId
+
+  if (!isParticipant) return null
+
+  const isRequester = conversation.requesterId === userId
+  const lastMsg = conversation.messages[0] ?? null
+
+  return {
+    id: conversation.id,
+    bookingId: conversation.booking.id,
+    bookingNumber: conversation.booking.bookingNumber,
+    bookingStatus: conversation.booking.status,
+    categoryName: conversation.booking.category.name,
+    categoryIcon: conversation.booking.category.iconName,
+    otherPartyName: isRequester
+      ? conversation.provider.displayName
+      : conversation.booking.requester.fullName,
+    lastMessage: lastMsg
+      ? lastMsg.content.length > 100
+        ? lastMsg.content.slice(0, 100) + '...'
+        : lastMsg.content
+      : null,
+    lastMessageAt: conversation.lastMessageAt ?? conversation.createdAt,
+    unreadCount: conversation._count.messages,
+  }
+}
+
 // =============================================================================
 // Get Messages (cursor-based pagination)
 // =============================================================================
@@ -113,7 +234,7 @@ export async function getMessages(
   })
 
   if (!conversation) {
-    throw new Error('CONVERSATION_NOT_FOUND')
+    return { messages: [], nextCursor: null }
   }
 
   const isParticipant =
@@ -121,17 +242,17 @@ export async function getMessages(
     conversation.provider.userId === userId
 
   if (!isParticipant) {
-    throw new Error('NOT_A_PARTICIPANT')
+    return { messages: [], nextCursor: null }
   }
 
-  // Fetch messages: newest first, then reverse for display order
-  // Cursor is a message ID to avoid timestamp collision issues
+  // Fetch messages: newest first, then reverse for display order.
   const messages = await prisma.message.findMany({
-    where: { conversationId },
-    ...(cursor && {
-      skip: 1,
-      cursor: { id: cursor },
-    }),
+    where: {
+      conversationId,
+      ...(cursor && {
+        createdAt: { lt: new Date(cursor) },
+      }),
+    },
     select: {
       id: true,
       senderId: true,
@@ -154,7 +275,7 @@ export async function getMessages(
   const ascending = pageMessages.reverse()
 
   const nextCursor = hasMore
-    ? ascending[0].id
+    ? ascending[0].createdAt.toISOString()
     : null
 
   return {
@@ -237,6 +358,26 @@ export async function sendMessage(
 
       return created
     })
+
+    const recipientUserId =
+      conversation.requesterId === userId
+        ? conversation.provider.userId
+        : conversation.requesterId
+
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: recipientUserId,
+          channel: 'IN_APP',
+          type: 'MESSAGE_NEW',
+          title: 'New Message',
+          body: trimmed.length > 120 ? `${trimmed.slice(0, 120)}...` : trimmed,
+          data: { conversationId, senderId: userId },
+        },
+      })
+    } catch (notifError) {
+      console.error('[sendMessage] notification failed:', notifError)
+    }
 
     return {
       success: true,

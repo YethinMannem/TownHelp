@@ -13,7 +13,7 @@ export default async function WelcomePage() {
   if (user) redirect('/')
 
   return (
-    <div className="relative min-h-screen bg-surface overflow-hidden flex flex-col">
+    <div className="relative min-h-screen bg-surface overflow-hidden flex flex-col items-center">
       {/* Organic background blobs */}
       <div
         aria-hidden="true"
@@ -29,7 +29,7 @@ export default async function WelcomePage() {
       />
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col flex-1 items-center justify-between px-6 py-16">
+      <div className="relative z-10 flex flex-col flex-1 items-center justify-between px-6 py-16 w-full max-w-lg">
 
         {/* Logo + headline */}
         <div className="flex flex-col items-center gap-6 mt-8">

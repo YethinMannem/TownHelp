@@ -11,7 +11,9 @@ interface UnfavoriteButtonProps {
 export default function UnfavoriteButton({ providerId, providerName }: UnfavoriteButtonProps) {
   const [isPending, startTransition] = useTransition()
 
-  function handleClick() {
+  function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    event.stopPropagation()
     startTransition(async () => {
       await toggleFavorite(providerId)
     })

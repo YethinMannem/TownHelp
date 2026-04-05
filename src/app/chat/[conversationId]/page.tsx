@@ -1,10 +1,10 @@
 import { requireAuthUser } from '@/lib/auth'
-import { getMessages, markConversationAsRead, getConversations } from '@/app/actions/chat'
+import { getMessages as getMessagesAction, markConversationAsRead } from '@/app/actions/chat'
+import { getConversationSummary } from '@/services/chat.service'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import MessageInput from '@/components/chat/MessageInput'
 import ChatMessages from './ChatMessages'
-import type { ConversationItem } from '@/types'
 
 const AVATAR_COLORS = [
   'bg-primary-fixed text-on-primary-fixed',
@@ -26,24 +26,20 @@ export default async function ConversationPage({
   const { conversationId } = await params
   const authUser = await requireAuthUser()
 
-  const [{ messages }, conversations] = await Promise.all([
-    getMessages(conversationId),
-    getConversations(),
+  const [{ messages }, conversation] = await Promise.all([
+    getMessagesAction(conversationId),
+    getConversationSummary(conversationId, authUser.id),
     markConversationAsRead(conversationId),
   ])
-
-  const conversation = conversations.find(
-    (c: ConversationItem) => c.id === conversationId
-  )
 
   if (!conversation) {
     notFound()
   }
 
   return (
-    <div className="flex flex-col h-screen bg-surface">
+    <div className="flex flex-col h-screen bg-surface lg:pl-60">
       {/* Fixed header */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 h-14 flex items-center gap-3 shrink-0">
+      <header className="fixed top-0 left-0 right-0 lg:left-60 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 lg:px-6 h-14 flex items-center gap-3 shrink-0">
         <Link
           href="/chat"
           className="text-primary p-1 -ml-1"
@@ -86,7 +82,7 @@ export default async function ConversationPage({
       </header>
 
       {/* Message list — offset below fixed header, above fixed input */}
-      <main className="flex-1 overflow-y-auto px-4 pt-14 pb-28">
+      <main className="flex-1 overflow-y-auto px-4 lg:px-6 pt-14 pb-28 max-w-3xl mx-auto w-full">
         <ChatMessages
           conversationId={conversationId}
           initialMessages={messages}
@@ -95,7 +91,7 @@ export default async function ConversationPage({
       </main>
 
       {/* Fixed message input */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 shrink-0">
+      <div className="fixed bottom-0 left-0 right-0 lg:left-60 z-40 shrink-0">
         <MessageInput conversationId={conversationId} />
       </div>
     </div>

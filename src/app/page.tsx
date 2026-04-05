@@ -1,10 +1,14 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getViewerContext } from '@/lib/auth'
 import { getServiceCategories, getProviders } from '@/app/actions/booking'
+import { getUnreadNotificationCount } from '@/services/notification.service'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { CategoryCard } from '@/components/ui/CategoryCard'
 import { ProviderCard } from '@/components/ui/ProviderCard'
 import { CATEGORY_LUCIDE_ICONS, CATEGORY_COLOR_CLASSES } from '@/lib/constants'
+import { Search, ArrowRight } from 'lucide-react'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -19,37 +23,51 @@ export default async function HomePage() {
 
   if (!user) redirect('/welcome')
 
-  // Fetch data in parallel
-  const [categories, providers] = await Promise.all([
+  const [viewer, categories, providers] = await Promise.all([
+    getViewerContext(),
     getServiceCategories(),
     getProviders({ limit: 10 }),
   ])
+  const unreadNotificationsCount = await getUnreadNotificationCount(user.id)
 
   const displayName = user.user_metadata?.full_name?.split(' ')[0] ?? 'there'
 
   return (
-    <div className="min-h-screen bg-surface pb-28">
-      <PageHeader showLocation showNotifications />
+    <div className="min-h-screen bg-surface pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-60">
+      <PageHeader
+        showLocation
+        locationLabel={viewer.locationLabel ?? 'Set your location'}
+        showNotifications
+        unreadNotificationsCount={unreadNotificationsCount}
+      />
 
-      {/* Scrollable content — top padding clears the fixed header */}
-      <div className="pt-16 px-4 space-y-8">
+      <div className="pt-14 px-4 lg:px-8 space-y-6 max-w-4xl mx-auto">
 
         {/* Greeting */}
         <section className="pt-4">
-          <h1 className="font-headline text-2xl font-extrabold text-on-surface">
+          <h1 className="font-headline text-2xl md:text-3xl font-extrabold text-on-surface">
             Hi {displayName} 👋
           </h1>
-          <p className="mt-1 text-sm text-on-surface-variant font-body">
+          <p className="mt-1 text-sm md:text-base text-on-surface-variant font-body">
             What do you need help with today?
           </p>
         </section>
+
+        {/* Search bar */}
+        <Link
+          href="/browse"
+          className="flex items-center gap-3 w-full max-w-xl px-4 py-3 bg-surface-container rounded-2xl text-on-surface-variant transition-colors hover:bg-surface-container-high"
+        >
+          <Search className="w-5 h-5 text-outline shrink-0" />
+          <span className="text-sm font-body">Search for services or providers...</span>
+        </Link>
 
         {/* Category grid */}
         <section>
           <h2 className="font-headline text-base font-bold text-on-surface mb-3">
             Browse by category
           </h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(88px,1fr))] gap-2.5 sm:gap-3">
             {categories.map((cat) => {
               const Icon = CATEGORY_LUCIDE_ICONS[cat.slug]
               const colorClasses = CATEGORY_COLOR_CLASSES[cat.slug] ?? 'bg-surface-container text-on-surface'
@@ -74,10 +92,18 @@ export default async function HomePage() {
               <h2 className="font-headline text-base font-bold text-on-surface">
                 Popular near you
               </h2>
+              <Link
+                href="/browse"
+                className="flex items-center gap-1 text-sm font-medium text-primary font-body hover:underline"
+              >
+                See all
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+            {/* Horizontal scroll on mobile */}
+            <div className="md:hidden flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
               {providers.map((provider) => (
-                <div key={provider.id} className="flex-shrink-0">
+                <div key={provider.id} className="w-[min(75vw,18rem)] shrink-0">
                   <ProviderCard
                     providerId={provider.id}
                     name={provider.user.fullName}
@@ -88,6 +114,21 @@ export default async function HomePage() {
                     isVerified={provider.isVerified}
                   />
                 </div>
+              ))}
+            </div>
+            {/* Grid on desktop */}
+            <div className="hidden md:grid md:grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+              {providers.map((provider) => (
+                <ProviderCard
+                  key={provider.id}
+                  providerId={provider.id}
+                  name={provider.user.fullName}
+                  role={provider.services[0]?.category.name ?? 'Service Provider'}
+                  rating={provider.ratingAvg}
+                  reviewCount={provider.ratingCount}
+                  pricePerHour={provider.services[0]?.customRate ?? provider.baseRate}
+                  isVerified={provider.isVerified}
+                />
               ))}
             </div>
           </section>

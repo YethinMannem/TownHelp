@@ -52,11 +52,20 @@
   --color-outline-variant: #c2c9be;
 
   /* ── Typography ── */
-  --font-headline: var(--font-plus-jakarta-sans), sans-serif;
-  --font-body: var(--font-be-vietnam-pro), sans-serif;
+  --font-headline: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-body: Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Brand gradient utility */
 .bg-brand-gradient {
   background: linear-gradient(135deg, #4e644f 0%, #88a088 100%);
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

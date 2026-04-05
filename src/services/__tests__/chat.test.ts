@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { prismaMock, mockTransaction } from './prisma.mock'
-import { getConversations, getMessages, sendMessage, markAsRead } from '../chat.service'
+import { getConversations, getMessages, getUnreadMessageCount, sendMessage, markAsRead } from '../chat.service'
 import {
   REQUESTER_ID,
   PROVIDER_USER_ID,
@@ -125,6 +125,26 @@ describe('getConversations', () => {
   })
 })
 
+describe('getUnreadMessageCount', () => {
+  it('counts unread messages for requester conversations', async () => {
+    prismaMock.providerProfile.findUnique.mockResolvedValue(null)
+    prismaMock.message.count.mockResolvedValue(4)
+
+    const count = await getUnreadMessageCount(REQUESTER_ID)
+
+    expect(count).toBe(4)
+    expect(prismaMock.message.count).toHaveBeenCalledWith({
+      where: {
+        isRead: false,
+        senderId: { not: REQUESTER_ID },
+        conversation: {
+          OR: [{ requesterId: REQUESTER_ID }],
+        },
+      },
+    })
+  })
+})
+
 // =============================================================================
 // getMessages
 // =============================================================================
@@ -245,6 +265,7 @@ describe('sendMessage', () => {
 
   it('accepts message at exactly 2000 characters', async () => {
     prismaMock.conversation.findUnique.mockResolvedValue(makeConversation())
+    prismaMock.notification.create.mockResolvedValue({})
     const tx = mockTransaction()
     tx.message.create.mockResolvedValue({
       id: 'msg', content: 'A'.repeat(2000), createdAt: new Date(), senderId: REQUESTER_ID,
@@ -271,6 +292,7 @@ describe('sendMessage', () => {
 
   it('trims content before saving', async () => {
     prismaMock.conversation.findUnique.mockResolvedValue(makeConversation())
+    prismaMock.notification.create.mockResolvedValue({})
 
     const tx = mockTransaction()
     tx.message.create.mockResolvedValue({
@@ -293,6 +315,7 @@ describe('sendMessage', () => {
 
   it('creates message and updates lastMessageAt atomically', async () => {
     prismaMock.conversation.findUnique.mockResolvedValue(makeConversation())
+    prismaMock.notification.create.mockResolvedValue({})
 
     const createdMessage = {
       id: 'msg-uuid',
@@ -317,6 +340,14 @@ describe('sendMessage', () => {
     expect(tx.conversation.update).toHaveBeenCalledWith({
       where: { id: CONVERSATION_ID },
       data: { lastMessageAt: createdMessage.createdAt },
+    })
+    expect(prismaMock.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: PROVIDER_USER_ID,
+        type: 'MESSAGE_NEW',
+        title: 'New Message',
+        data: { conversationId: CONVERSATION_ID, senderId: REQUESTER_ID },
+      }),
     })
   })
 

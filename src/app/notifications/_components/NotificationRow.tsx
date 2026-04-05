@@ -1,9 +1,10 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { readNotification } from '@/app/actions/notification'
 import { Bell, Calendar, Star, MessageCircle, CheckCircle, AlertCircle } from 'lucide-react'
-import type { NotificationItem } from '@/types'
+import type { NotificationItem, NotificationType } from '@/types'
 
 interface NotificationRowProps {
   notification: NotificationItem
@@ -23,7 +24,7 @@ function formatTimestamp(date: Date): string {
   return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 
-function getNotificationIcon(type: string) {
+function getNotificationIcon(type: NotificationType) {
   const cls = 'w-5 h-5'
   switch (type) {
     case 'BOOKING_REQUEST':
@@ -32,12 +33,13 @@ function getNotificationIcon(type: string) {
       return <Calendar className={cls} />
     case 'REVIEW_RECEIVED':
       return <Star className={cls} />
-    case 'MESSAGE_RECEIVED':
+    case 'MESSAGE_NEW':
       return <MessageCircle className={cls} />
-    case 'BOOKING_COMPLETED':
+    case 'PAYMENT_RECEIVED':
+    case 'SYSTEM':
       return <CheckCircle className={cls} />
     case 'DISPUTE_OPENED':
-    case 'REPORT_RESOLVED':
+    case 'DISPUTE_RESOLVED':
       return <AlertCircle className={cls} />
     default:
       return <Bell className={cls} />
@@ -45,28 +47,32 @@ function getNotificationIcon(type: string) {
 }
 
 export default function NotificationRow({ notification }: NotificationRowProps) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [isRead, setIsRead] = useState(notification.isRead)
 
   function handleClick() {
-    if (notification.isRead) return
+    if (isRead) return
     startTransition(async () => {
       await readNotification(notification.id)
+      setIsRead(true)
+      router.refresh()
     })
   }
 
   return (
     <button
       onClick={handleClick}
-      disabled={isPending || notification.isRead}
+      disabled={isPending || isRead}
       className={[
-        'w-full text-left bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-4 transition-all duration-150',
-        notification.isRead
-          ? 'opacity-80'
-          : 'hover:shadow-[0_2px_8px_rgba(27,28,27,0.08)] cursor-pointer',
-        isPending ? 'opacity-60' : '',
+        'w-full text-left bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-3.5 transition-all duration-150',
+        isRead
+          ? 'opacity-70'
+          : 'hover:bg-surface-container/30 cursor-pointer',
+        isPending ? 'opacity-50' : '',
       ].join(' ')}
       aria-label={
-        notification.isRead ? notification.title : `Mark as read: ${notification.title}`
+        isRead ? notification.title : `Mark as read: ${notification.title}`
       }
     >
       <div className="flex items-start gap-3">
@@ -74,7 +80,7 @@ export default function NotificationRow({ notification }: NotificationRowProps) 
         <div
           className={[
             'shrink-0 w-9 h-9 rounded-full flex items-center justify-center',
-            notification.isRead
+            isRead
               ? 'bg-surface-container text-on-surface-variant'
               : 'bg-primary-fixed text-on-primary-fixed',
           ].join(' ')}
@@ -88,7 +94,7 @@ export default function NotificationRow({ notification }: NotificationRowProps) 
           <div className="flex items-start justify-between gap-2">
             <p
               className={`text-sm font-semibold font-body truncate ${
-                notification.isRead ? 'text-on-surface-variant' : 'text-on-surface'
+                isRead ? 'text-on-surface-variant' : 'text-on-surface'
               }`}
             >
               {notification.title}
@@ -103,7 +109,7 @@ export default function NotificationRow({ notification }: NotificationRowProps) 
         </div>
 
         {/* Unread dot */}
-        {!notification.isRead && (
+        {!isRead && (
           <span
             className="shrink-0 mt-1 h-2 w-2 rounded-full bg-primary"
             aria-hidden="true"

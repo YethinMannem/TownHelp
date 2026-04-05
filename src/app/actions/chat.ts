@@ -6,6 +6,7 @@ import { isValidUUID } from '@/lib/validation'
 import { checkRateLimit } from '@/lib/rate-limit'
 import {
   getConversations as getConversationsService,
+  getUnreadMessageCount as getUnreadMessageCountService,
   getMessages as getMessagesService,
   sendMessage as sendMessageService,
   markAsRead as markAsReadService,
@@ -23,6 +24,17 @@ export async function getConversations(): Promise<ConversationItem[]> {
   }
 }
 
+export async function getUnreadMessageCount(): Promise<number> {
+  const authUser = await requireAuthUser()
+
+  try {
+    return await getUnreadMessageCountService(authUser.id)
+  } catch (error) {
+    console.error('[getUnreadMessageCount]:', error)
+    return 0
+  }
+}
+
 export async function getMessages(
   conversationId: string,
   cursor?: string
@@ -33,13 +45,7 @@ export async function getMessages(
   try {
     return await getMessagesService(conversationId, authUser.id, cursor)
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.message === 'NOT_A_PARTICIPANT') {
-        console.error('[getMessages]: unauthorized access attempt for', conversationId)
-      } else if (error.message !== 'CONVERSATION_NOT_FOUND') {
-        console.error('[getMessages]:', error)
-      }
-    }
+    console.error('[getMessages]:', error)
     return { messages: [], nextCursor: null }
   }
 }

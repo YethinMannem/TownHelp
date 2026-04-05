@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import type { NotificationItem, NotificationSummary } from '@/types'
+import type { NotificationSummary } from '@/types'
 
 const DEFAULT_LIMIT = 20
 
@@ -44,6 +44,12 @@ export async function getNotifications(
     })),
     unreadCount,
   }
+}
+
+export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  return prisma.notification.count({
+    where: { userId, isRead: false },
+  })
 }
 
 /**

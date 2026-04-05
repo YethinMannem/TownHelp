@@ -1,23 +1,18 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { readAllNotifications } from '@/app/actions/notification'
 
 export default function MarkAllReadButton() {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [done, setDone] = useState(false)
 
   function handleClick() {
     startTransition(async () => {
       await readAllNotifications()
-      setDone(true)
+      router.refresh()
     })
-  }
-
-  if (done) {
-    return (
-      <span className="text-xs text-on-surface-variant font-body">All read</span>
-    )
   }
 
   return (

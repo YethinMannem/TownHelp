@@ -8,6 +8,34 @@ export interface AuthUser {
   supabaseId: string
 }
 
+export interface ViewerContext {
+  user: AuthUser | null
+  providerProfileId: string | null
+  locationLabel: string | null
+}
+
+function extractLocationLabel(
+  metadata: unknown,
+  fallbackArea?: { areaName: string; city: string } | null
+): string | null {
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    const raw = (metadata as Record<string, unknown>).locationLabel
+    if (typeof raw === 'string' && raw.trim()) {
+      return raw.trim()
+    }
+  }
+
+  if (fallbackArea?.areaName?.trim() && fallbackArea.city?.trim()) {
+    return `${fallbackArea.areaName.trim()}, ${fallbackArea.city.trim()}`
+  }
+
+  if (fallbackArea?.city?.trim()) {
+    return fallbackArea.city.trim()
+  }
+
+  return null
+}
+
 /**
  * Cached per-request: creates Supabase client and resolves DB user once.
  * All server actions and pages should use this instead of repeating
@@ -27,6 +55,40 @@ export const getAuthUser = cache(async (): Promise<AuthUser | null> => {
   if (!dbUser) return null
 
   return { id: dbUser.id, supabaseId: user.id }
+})
+
+export const getViewerContext = cache(async (): Promise<ViewerContext> => {
+  const user = await getAuthUser()
+
+  if (!user) {
+    return { user: null, providerProfileId: null, locationLabel: null }
+  }
+
+  const [dbUser, providerProfile] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: user.id, deletedAt: null },
+      select: { metadata: true },
+    }),
+    prisma.providerProfile.findUnique({
+      where: { userId: user.id, deletedAt: null },
+      select: {
+        id: true,
+        serviceAreas: {
+          select: { areaName: true, city: true },
+          orderBy: { isPrimary: 'desc' },
+          take: 1,
+        },
+      },
+    }),
+  ])
+
+  const primaryArea = providerProfile?.serviceAreas[0] ?? null
+
+  return {
+    user,
+    providerProfileId: providerProfile?.id ?? null,
+    locationLabel: extractLocationLabel(dbUser?.metadata, primaryArea),
+  }
 })
 
 /**

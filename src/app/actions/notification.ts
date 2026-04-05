@@ -1,9 +1,11 @@
 'use server'
 
+import { refresh, revalidatePath } from 'next/cache'
 import { requireAuthUser } from '@/lib/auth'
 import { isValidUUID } from '@/lib/validation'
 import {
   getNotifications as fetchNotifications,
+  getUnreadNotificationCount as fetchUnreadNotificationCount,
   markAsRead as markNotificationRead,
   markAllAsRead as markAllNotificationsRead,
 } from '@/services/notification.service'
@@ -14,13 +16,25 @@ export async function getMyNotifications(cursor?: string): Promise<NotificationS
   return fetchNotifications(user.id, { cursor })
 }
 
+export async function getMyUnreadNotificationCount(): Promise<number> {
+  const user = await requireAuthUser()
+  return fetchUnreadNotificationCount(user.id)
+}
+
 export async function readNotification(notificationId: string): Promise<void> {
   if (!isValidUUID(notificationId)) return
   const user = await requireAuthUser()
   await markNotificationRead(user.id, notificationId)
+  revalidatePath('/notifications')
+  revalidatePath('/')
+  refresh()
 }
 
 export async function readAllNotifications(): Promise<number> {
   const user = await requireAuthUser()
-  return markAllNotificationsRead(user.id)
+  const updated = await markAllNotificationsRead(user.id)
+  revalidatePath('/notifications')
+  revalidatePath('/')
+  refresh()
+  return updated
 }

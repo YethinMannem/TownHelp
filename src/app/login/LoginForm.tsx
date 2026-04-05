@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { authService } from '@/services/auth.service'
 import { syncUserOnLogin } from '@/app/actions/auth'
 
@@ -44,15 +44,17 @@ export default function LoginForm() {
   const [isNewUser, setIsNewUser] = useState(false)
   const [formState, setFormState] = useState<FormState>({ kind: 'idle' })
   const searchParams = useSearchParams()
-  const router = useRouter()
 
   function getRedirectPath(): string {
     return searchParams.get('role') === 'provider' ? '/provider/dashboard' : '/'
   }
 
+  function navigateAfterAuth(): void {
+    window.location.assign(getRedirectPath())
+  }
+
   const authError = searchParams.get('error')
   const isLoading = formState.kind === 'loading'
-  const showForm = formState.kind !== 'verify' && formState.kind !== 'resent'
 
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
@@ -72,31 +74,26 @@ export default function LoginForm() {
       if (error) {
         setFormState({ kind: 'error', message: getFriendlyError(error.message) })
       } else if (data.user && !data.session) {
-        // Supabase returns a user with empty identities when the email
-        // is already registered. No confirmation email is sent in this case.
         if (!data.user.identities || data.user.identities.length === 0) {
           setFormState({
             kind: 'error',
             message: 'An account with this email already exists. Try signing in, or use "Resend verification" if you haven\'t verified yet.',
           })
         } else {
-          // Genuine new signup — email confirmation sent
           setFormState({ kind: 'verify', email: trimmedEmail })
         }
       } else if (data.session) {
-        // Edge case: confirmation disabled in Supabase dashboard
         const syncResult = await syncUserOnLogin()
         if (!syncResult.success) {
           setFormState({ kind: 'error', message: 'Account created but setup failed. Please try signing in again.' })
           return
         }
-        router.push(getRedirectPath())
+        navigateAfterAuth()
       }
     } else {
       const { data, error } = await authService.signIn(trimmedEmail, password)
 
       if (error) {
-        // Supabase returns this when user hasn't verified their email
         if (error.message.includes('Email not confirmed')) {
           setFormState({ kind: 'verify', email: trimmedEmail })
         } else {
@@ -108,7 +105,7 @@ export default function LoginForm() {
           setFormState({ kind: 'error', message: 'Sign in succeeded but account sync failed. Please try again.' })
           return
         }
-        router.push(getRedirectPath())
+        navigateAfterAuth()
       }
     }
   }
@@ -130,23 +127,23 @@ export default function LoginForm() {
   if (formState.kind === 'verify') {
     return (
       <div className="space-y-4">
-        <div className="p-6 rounded-lg bg-blue-50 border border-blue-200 text-center">
+        <div className="p-6 rounded-2xl bg-tertiary-fixed border border-outline-variant/20 text-center">
           <div className="text-3xl mb-3">&#9993;</div>
-          <h2 className="text-lg font-semibold text-blue-900">Verify your email</h2>
-          <p className="mt-2 text-sm text-blue-700">
+          <h2 className="text-lg font-semibold text-on-tertiary-fixed font-headline">Verify your email</h2>
+          <p className="mt-2 text-sm text-on-tertiary-fixed/80 font-body">
             We sent a verification link to <strong>{formState.email}</strong>.
             Click the link in your email to activate your account.
           </p>
         </div>
 
         <div className="text-center space-y-3">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-on-surface-variant font-body">
             Didn&apos;t receive the email? Check your spam folder, or
           </p>
           <button
             type="button"
             onClick={handleResendVerification}
-            className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+            className="text-sm font-semibold text-primary hover:underline transition-colors font-body"
           >
             Resend verification email
           </button>
@@ -155,7 +152,7 @@ export default function LoginForm() {
         <button
           type="button"
           onClick={() => setFormState({ kind: 'idle' })}
-          className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          className="w-full py-2 text-sm text-on-surface-variant hover:text-on-surface transition-colors font-body"
         >
           &larr; Back to sign in
         </button>
@@ -167,10 +164,10 @@ export default function LoginForm() {
   if (formState.kind === 'resent') {
     return (
       <div className="space-y-4">
-        <div className="p-6 rounded-lg bg-green-50 border border-green-200 text-center">
+        <div className="p-6 rounded-2xl bg-primary-fixed border border-outline-variant/20 text-center">
           <div className="text-3xl mb-3">&#10003;</div>
-          <h2 className="text-lg font-semibold text-green-900">Email resent</h2>
-          <p className="mt-2 text-sm text-green-700">
+          <h2 className="text-lg font-semibold text-on-primary-fixed font-headline">Email resent</h2>
+          <p className="mt-2 text-sm text-on-primary-fixed/80 font-body">
             A new verification link has been sent. Please check your inbox.
           </p>
         </div>
@@ -178,7 +175,7 @@ export default function LoginForm() {
         <button
           type="button"
           onClick={() => setFormState({ kind: 'idle' })}
-          className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          className="w-full py-2 text-sm text-on-surface-variant hover:text-on-surface transition-colors font-body"
         >
           &larr; Back to sign in
         </button>
@@ -189,7 +186,7 @@ export default function LoginForm() {
   return (
     <>
       {authError && formState.kind === 'idle' && (
-        <div className="p-4 rounded-lg text-sm text-center bg-red-50 text-red-700 border border-red-200">
+        <div className="p-4 rounded-xl text-sm text-center bg-error-container text-on-error-container border border-outline-variant/20 font-body">
           {authError === 'link_expired'
             ? 'Your verification link has expired. Please sign up again or resend the verification email.'
             : authError === 'exchange_failed'
@@ -202,14 +199,15 @@ export default function LoginForm() {
         </div>
       )}
 
-      <div className="flex bg-gray-100 rounded-lg p-1">
+      {/* Tab toggle */}
+      <div className="flex bg-surface-container rounded-xl p-1 gap-1">
         <button
           type="button"
           onClick={() => { setIsNewUser(false); setFormState({ kind: 'idle' }); }}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-150 font-body ${
             !isNewUser
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+              : 'text-on-surface-variant hover:text-on-surface'
           }`}
         >
           Sign In
@@ -217,10 +215,10 @@ export default function LoginForm() {
         <button
           type="button"
           onClick={() => { setIsNewUser(true); setFormState({ kind: 'idle' }); }}
-          className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-150 font-body ${
             isNewUser
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+              : 'text-on-surface-variant hover:text-on-surface'
           }`}
         >
           Sign Up
@@ -230,7 +228,7 @@ export default function LoginForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {isNewUser && (
           <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="fullName" className="block text-sm font-medium text-on-surface font-body">
               Full Name
             </label>
             <input
@@ -241,13 +239,13 @@ export default function LoginForm() {
               placeholder="Enter your full name"
               required={isNewUser}
               minLength={2}
-              className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+              className="mt-1.5 block w-full px-3.5 py-3 border border-outline-variant/40 rounded-xl bg-surface-container-lowest text-on-surface placeholder-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all font-body text-sm"
             />
           </div>
         )}
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="email" className="block text-sm font-medium text-on-surface font-body">
             Email Address
           </label>
           <input
@@ -257,12 +255,12 @@ export default function LoginForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
-            className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+            className="mt-1.5 block w-full px-3.5 py-3 border border-outline-variant/40 rounded-xl bg-surface-container-lowest text-on-surface placeholder-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all font-body text-sm"
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="password" className="block text-sm font-medium text-on-surface font-body">
             Password
           </label>
           <input
@@ -273,14 +271,14 @@ export default function LoginForm() {
             placeholder={isNewUser ? 'At least 6 characters' : 'Enter your password'}
             required
             minLength={6}
-            className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+            className="mt-1.5 block w-full px-3.5 py-3 border border-outline-variant/40 rounded-xl bg-surface-container-lowest text-on-surface placeholder-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all font-body text-sm"
           />
         </div>
 
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full py-3 px-4 rounded-xl text-sm font-semibold font-body text-on-primary bg-brand-gradient shadow-sm hover:opacity-90 active:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {isLoading
             ? (isNewUser ? 'Creating account...' : 'Signing in...')
@@ -289,13 +287,13 @@ export default function LoginForm() {
       </form>
 
       {formState.kind === 'error' && (
-        <div className="p-4 rounded-lg text-sm text-center bg-red-50 text-red-700 border border-red-200">
+        <div className="p-4 rounded-xl text-sm text-center bg-error-container text-on-error-container border border-outline-variant/20 font-body">
           <p>{formState.message}</p>
           {(formState.message.includes('already exists') || formState.message.includes('not verified')) && email.trim() && (
             <button
               type="button"
               onClick={() => setFormState({ kind: 'verify', email: email.trim().toLowerCase() })}
-              className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+              className="mt-2 text-sm font-semibold text-primary hover:underline transition-colors font-body"
             >
               Resend verification email
             </button>

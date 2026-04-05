@@ -2,8 +2,18 @@
 
 import { authService } from '@/services/auth.service'
 import { useRouter } from 'next/navigation'
+import { LogOut } from 'lucide-react'
+import { cn } from '@/lib/cn'
 
-export default function SignOutButton() {
+interface SignOutButtonProps {
+  compact?: boolean
+  className?: string
+}
+
+export default function SignOutButton({
+  compact = false,
+  className,
+}: SignOutButtonProps) {
   const router = useRouter()
 
   async function handleSignOut() {
@@ -14,10 +24,31 @@ export default function SignOutButton() {
 
   return (
     <button
+      type="button"
       onClick={handleSignOut}
-      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+      className={cn(
+        compact
+          ? 'flex flex-1 min-w-0 flex-col items-center justify-center gap-0.5 py-1 text-on-surface-variant hover:text-on-surface transition-colors duration-150'
+          : 'inline-flex w-full items-center justify-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-2.5 text-sm font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors',
+        className
+      )}
+      aria-label="Sign out"
     >
-      Sign Out
+      {compact ? (
+        <>
+          <div className="flex items-center justify-center w-16 h-8 rounded-full">
+            <LogOut className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] sm:text-[11px] font-body leading-tight truncate">
+            Sign Out
+          </span>
+        </>
+      ) : (
+        <>
+          <LogOut className="w-4 h-4 shrink-0" />
+          <span>Sign Out</span>
+        </>
+      )}
     </button>
   )
 }
