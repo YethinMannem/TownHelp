@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "coverage/**",
+    ".claude/**",
+    "src/generated/prisma/**",
+    "CLAUDE.md.bak*",
   ]),
 ]);
 
