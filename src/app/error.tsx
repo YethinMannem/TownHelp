@@ -1,18 +1,14 @@
-'use client';
+'use client'
 
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'
 
 interface ErrorProps {
-  error: Error & { digest?: string };
-  reset: () => void;
+  error: Error & { digest?: string }
+  reset: () => void
 }
 
-export default function ProviderDetailError({ error, reset }: ErrorProps) {
-  const router = useRouter();
-
-  const isNotFound =
-    error.message.toLowerCase().includes('not found') ||
-    error.message.toLowerCase().includes('no rows');
+export default function GlobalError({ error, reset }: ErrorProps) {
+  const router = useRouter()
 
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center px-4">
@@ -39,13 +35,16 @@ export default function ProviderDetailError({ error, reset }: ErrorProps) {
 
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-on-surface">
-            {isNotFound ? 'Provider not found' : 'Something went wrong'}
+            Something went wrong
           </h1>
           <p className="text-sm text-on-surface-variant">
-            {isNotFound
-              ? 'This provider may have removed their profile or the link is incorrect.'
-              : 'We could not load this provider right now. Please try again.'}
+            An unexpected error occurred. Please try again.
           </p>
+          {error.digest && (
+            <p className="text-xs text-outline mt-2">
+              Error ID: {error.digest}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-3 pt-2">
@@ -58,13 +57,13 @@ export default function ProviderDetailError({ error, reset }: ErrorProps) {
           </button>
           <button
             type="button"
-            onClick={() => router.push('/browse')}
+            onClick={() => router.push('/')}
             className="w-full h-11 bg-surface-container text-on-surface text-sm font-medium rounded-lg border border-outline-variant hover:bg-surface-container-high active:bg-surface-container-highest transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline"
           >
-            Go back to Browse
+            Go home
           </button>
         </div>
       </div>
     </div>
-  );
+  )
 }

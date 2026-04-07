@@ -20,17 +20,33 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const viewer = await getViewerContext()
-  const providerHref = viewer.providerProfileId ? '/provider/dashboard' : '/provider/register'
-  const unreadMessagesCount = viewer.user
-    ? await getUnreadMessageCountForViewer(viewer.user.id, viewer.providerProfileId)
-    : 0
+  let viewer: Awaited<ReturnType<typeof getViewerContext>> | null = null
+  let providerHref = '/provider/register'
+  let unreadMessagesCount = 0
+
+  try {
+    viewer = await getViewerContext()
+    providerHref = viewer.providerProfileId ? '/provider/dashboard' : '/provider/register'
+
+    if (viewer.user) {
+      try {
+        unreadMessagesCount = await getUnreadMessageCountForViewer(
+          viewer.user.id,
+          viewer.providerProfileId
+        )
+      } catch (error) {
+        console.error('Failed to fetch unread message count:', error)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load viewer context:', error)
+  }
 
   return (
     <html lang="en">
       <body className="min-h-full bg-surface text-on-surface font-body">
         {children}
-        {viewer.user && (
+        {viewer?.user && (
           <BottomNav
             providerHref={providerHref}
             unreadMessagesCount={unreadMessagesCount}
