@@ -8,6 +8,10 @@ interface BookingTabsProps {
   providerCount: number
   requesterContent: React.ReactNode
   providerContent: React.ReactNode
+  requesterPastContent?: React.ReactNode
+  providerPastContent?: React.ReactNode
+  requesterPastCount?: number
+  providerPastCount?: number
 }
 
 export default function BookingTabs({
@@ -15,10 +19,17 @@ export default function BookingTabs({
   providerCount,
   requesterContent,
   providerContent,
+  requesterPastContent,
+  providerPastContent,
+  requesterPastCount = 0,
+  providerPastCount = 0,
 }: BookingTabsProps) {
   const [activeTab, setActiveTab] = useState<'booked' | 'received'>(
-    requesterCount > 0 ? 'booked' : 'received'
+    requesterCount > 0 || requesterPastCount > 0 ? 'booked' : 'received'
   )
+
+  const pastContent = activeTab === 'booked' ? requesterPastContent : providerPastContent
+  const pastCount = activeTab === 'booked' ? requesterPastCount : providerPastCount
 
   return (
     <div>
@@ -34,8 +45,8 @@ export default function BookingTabs({
           )}
         >
           Booked
-          {requesterCount > 0 && (
-            <span className="ml-1.5 text-xs font-normal whitespace-nowrap">({requesterCount})</span>
+          {(requesterCount > 0 || requesterPastCount > 0) && (
+            <span className="ml-1.5 text-xs font-normal whitespace-nowrap">({requesterCount + requesterPastCount})</span>
           )}
         </button>
         <button
@@ -48,16 +59,26 @@ export default function BookingTabs({
           )}
         >
           Received
-          {providerCount > 0 && (
-            <span className="ml-1.5 text-xs font-normal whitespace-nowrap">({providerCount})</span>
+          {(providerCount > 0 || providerPastCount > 0) && (
+            <span className="ml-1.5 text-xs font-normal whitespace-nowrap">({providerCount + providerPastCount})</span>
           )}
         </button>
       </div>
 
-      {/* Tab content */}
+      {/* Active bookings */}
       <div className="mt-4">
         {activeTab === 'booked' ? requesterContent : providerContent}
       </div>
+
+      {/* Past bookings */}
+      {pastContent && pastCount > 0 && (
+        <div className="mt-8">
+          <h2 className="text-sm font-semibold text-on-surface-variant font-body mb-3">
+            Past ({pastCount})
+          </h2>
+          {pastContent}
+        </div>
+      )}
     </div>
   )
 }

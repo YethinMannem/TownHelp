@@ -167,11 +167,45 @@ function EmptyBookings() {
   )
 }
 
+const ACTIVE_STATUSES = new Set(['PENDING', 'CONFIRMED', 'IN_PROGRESS'])
+
+function splitBookings<T extends { status: string }>(bookings: T[]): { active: T[]; past: T[] } {
+  const active: T[] = []
+  const past: T[] = []
+  for (const b of bookings) {
+    if (ACTIVE_STATUSES.has(b.status)) {
+      active.push(b)
+    } else {
+      past.push(b)
+    }
+  }
+  return { active, past }
+}
+
+function BookingGrid<T extends BookingAsRequester | BookingAsProvider>({
+  bookings,
+  variant,
+}: {
+  bookings: T[]
+  variant: 'requester' | 'provider'
+}) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      {bookings.map((booking) => (
+        <BookingCard key={booking.id} booking={booking} variant={variant} />
+      ))}
+    </div>
+  )
+}
+
 export default async function BookingsPage() {
   await requireAuthUser('/welcome')
 
   const { asRequester, asProvider } = await getMyBookings()
   const hasBookings = asRequester.length > 0 || asProvider.length > 0
+
+  const requester = splitBookings(asRequester)
+  const provider = splitBookings(asProvider)
 
   return (
     <div className="min-h-screen bg-surface pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-60">
@@ -187,33 +221,37 @@ export default async function BookingsPage() {
           <EmptyBookings />
         ) : (
           <BookingTabs
-            requesterCount={asRequester.length}
-            providerCount={asProvider.length}
+            requesterCount={requester.active.length}
+            providerCount={provider.active.length}
+            requesterPastCount={requester.past.length}
+            providerPastCount={provider.past.length}
             requesterContent={
-              asRequester.length === 0 ? (
-                <EmptyBookings />
+              requester.active.length === 0 ? (
+                <p className="text-on-surface-variant font-body text-sm text-center py-8">
+                  No active bookings.
+                </p>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {asRequester.map((booking: BookingAsRequester) => (
-                    <BookingCard key={booking.id} booking={booking} variant="requester" />
-                  ))}
-                </div>
+                <BookingGrid bookings={requester.active} variant="requester" />
               )
             }
             providerContent={
-              asProvider.length === 0 ? (
-                <div className="text-center py-16">
-                  <p className="text-on-surface-variant font-body text-sm">
-                    No bookings received yet.
-                  </p>
-                </div>
+              provider.active.length === 0 ? (
+                <p className="text-on-surface-variant font-body text-sm text-center py-8">
+                  No active bookings received.
+                </p>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {asProvider.map((booking: BookingAsProvider) => (
-                    <BookingCard key={booking.id} booking={booking} variant="provider" />
-                  ))}
-                </div>
+                <BookingGrid bookings={provider.active} variant="provider" />
               )
+            }
+            requesterPastContent={
+              requester.past.length > 0 ? (
+                <BookingGrid bookings={requester.past} variant="requester" />
+              ) : undefined
+            }
+            providerPastContent={
+              provider.past.length > 0 ? (
+                <BookingGrid bookings={provider.past} variant="provider" />
+              ) : undefined
             }
           />
         )}
