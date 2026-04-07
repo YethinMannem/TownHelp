@@ -164,10 +164,35 @@ export async function createBooking(formData: FormData): Promise<void> {
   const rawAddress = (formData.get('serviceAddress') as string)?.trim() || ''
   const rawNotes = (formData.get('notes') as string)?.trim() || ''
   const rawRate = parseFloat(formData.get('quotedRate') as string)
+  const scheduledDate = (formData.get('scheduledDate') as string)?.trim() || ''
+  const scheduledStartTime = (formData.get('scheduledStart') as string)?.trim() || ''
+  const scheduledEndTime = (formData.get('scheduledEnd') as string)?.trim() || ''
 
   const serviceAddress = rawAddress.slice(0, 500)
   const notes = rawNotes.slice(0, 1000)
   const quotedRate = isNaN(rawRate) || rawRate < 0 ? NaN : rawRate
+
+  // Parse scheduled time if provided
+  let scheduledStart: Date | null = null
+  let scheduledEnd: Date | null = null
+
+  if (scheduledDate && scheduledStartTime && scheduledEndTime) {
+    scheduledStart = new Date(`${scheduledDate}T${scheduledStartTime}:00.000Z`)
+    scheduledEnd = new Date(`${scheduledDate}T${scheduledEndTime}:00.000Z`)
+
+    if (isNaN(scheduledStart.getTime()) || isNaN(scheduledEnd.getTime())) {
+      throw new Error('Invalid date or time selected. Please try again.')
+    }
+
+    if (scheduledStart >= scheduledEnd) {
+      throw new Error('Invalid time slot selected.')
+    }
+
+    // Don't allow booking in the past
+    if (scheduledStart < new Date()) {
+      throw new Error('Cannot book a slot in the past. Please select a future time.')
+    }
+  }
 
   if (!isValidUUID(providerId) || !isValidUUID(categoryId)) {
     throw new Error('Provider and service category are required.')
@@ -209,6 +234,23 @@ export async function createBooking(formData: FormData): Promise<void> {
     throw new Error('This provider does not offer the service you selected. They may have updated their services.')
   }
 
+  // Conflict check: ensure no overlapping booking exists for this provider + time
+  if (scheduledStart && scheduledEnd) {
+    const conflicting = await prisma.booking.findFirst({
+      where: {
+        providerId,
+        status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] },
+        scheduledStart: { lt: scheduledEnd },
+        scheduledEnd: { gt: scheduledStart },
+      },
+      select: { id: true },
+    })
+
+    if (conflicting) {
+      throw new Error('This time slot was just booked by someone else. Please pick a different slot.')
+    }
+  }
+
   // Retry on booking number collision (extremely unlikely but handled)
   const MAX_RETRIES = 3
   let createdBookingId: string | null = null
@@ -229,6 +271,8 @@ export async function createBooking(formData: FormData): Promise<void> {
             providerId,
             categoryId,
             status: 'PENDING',
+            scheduledStart,
+            scheduledEnd,
             serviceAddress: serviceAddress || null,
             requesterNotes: notes || null,
             quotedRate: isNaN(quotedRate) ? null : quotedRate,
@@ -559,4 +603,118 @@ export async function getMyProviderProfile(): Promise<ProviderDashboard | null> 
     })),
     areas: profile.serviceAreas,
   }
+}
+
+// =============================================================================
+// Available Slots — computes open time slots for a provider on a given date
+// =============================================================================
+
+export interface TimeSlot {
+  start: string   // "HH:MM" 24-hour
+  end: string     // "HH:MM" 24-hour
+  available: boolean
+}
+
+export async function getAvailableSlots(
+  providerId: string,
+  dateStr: string   // "YYYY-MM-DD"
+): Promise<{ slots: TimeSlot[]; error?: string }> {
+  if (!isValidUUID(providerId)) {
+    return { slots: [], error: 'Invalid provider.' }
+  }
+
+  const date = new Date(dateStr + 'T00:00:00')
+  if (isNaN(date.getTime())) {
+    return { slots: [], error: 'Invalid date.' }
+  }
+
+  // Determine day of week (JS: 0=Sun .. 6=Sat)
+  const dayOfWeek = date.getDay()
+
+  // Get provider's weekly availability for this day
+  const availability = await prisma.providerAvailability.findUnique({
+    where: {
+      providerId_dayOfWeek: { providerId, dayOfWeek },
+    },
+  })
+
+  if (!availability || !availability.isActive) {
+    return { slots: [] }
+  }
+
+  // Extract working hours
+  const startHour = availability.startTime instanceof Date
+    ? availability.startTime.getUTCHours()
+    : 9
+  const startMin = availability.startTime instanceof Date
+    ? availability.startTime.getUTCMinutes()
+    : 0
+  const endHour = availability.endTime instanceof Date
+    ? availability.endTime.getUTCHours()
+    : 17
+  const endMin = availability.endTime instanceof Date
+    ? availability.endTime.getUTCMinutes()
+    : 0
+
+  // Get existing bookings for this provider on this date that occupy time slots
+  const dayStart = new Date(dateStr + 'T00:00:00.000Z')
+  const dayEnd = new Date(dateStr + 'T23:59:59.999Z')
+
+  const existingBookings = await prisma.booking.findMany({
+    where: {
+      providerId,
+      status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] },
+      scheduledStart: { gte: dayStart, lte: dayEnd },
+    },
+    select: {
+      scheduledStart: true,
+      scheduledEnd: true,
+    },
+  })
+
+  // Generate 1-hour slots within working hours
+  const slots: TimeSlot[] = []
+  let h = startHour
+  let m = startMin
+
+  while (h < endHour || (h === endHour && m < endMin)) {
+    const slotStartH = h
+    const slotStartM = m
+
+    // Advance by 1 hour
+    let slotEndH = h + 1
+    let slotEndM = m
+
+    // Cap at working hours end
+    if (slotEndH > endHour || (slotEndH === endHour && slotEndM > endMin)) {
+      slotEndH = endHour
+      slotEndM = endMin
+    }
+
+    // Skip partial slots less than 30 minutes
+    const slotDurationMin = (slotEndH - slotStartH) * 60 + (slotEndM - slotStartM)
+    if (slotDurationMin < 30) {
+      break
+    }
+
+    const startStr = `${String(slotStartH).padStart(2, '0')}:${String(slotStartM).padStart(2, '0')}`
+    const endStr = `${String(slotEndH).padStart(2, '0')}:${String(slotEndM).padStart(2, '0')}`
+
+    // Check if this slot conflicts with any existing booking
+    const slotStart = new Date(`${dateStr}T${startStr}:00.000Z`)
+    const slotEnd = new Date(`${dateStr}T${endStr}:00.000Z`)
+
+    const isBooked = existingBookings.some((b) => {
+      if (!b.scheduledStart || !b.scheduledEnd) return false
+      // Overlap check: booking overlaps slot if it starts before slot ends AND ends after slot starts
+      return b.scheduledStart < slotEnd && b.scheduledEnd > slotStart
+    })
+
+    slots.push({ start: startStr, end: endStr, available: !isBooked })
+
+    h = slotEndH
+    m = slotEndM
+  }
+
+  return { slots }
 }
