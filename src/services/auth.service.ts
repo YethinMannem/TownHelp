@@ -51,6 +51,30 @@ export const authService = {
   },
 
   /**
+   * Send a password reset email.
+   * User clicks the link → redirected to /auth/callback?next=/login/reset-password.
+   */
+  async resetPassword(email: string) {
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/login/reset-password`,
+    })
+    return { data, error }
+  },
+
+  /**
+   * Update password for the currently authenticated user.
+   * Called after the user clicks the reset link and is redirected back.
+   */
+  async updatePassword(newPassword: string) {
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+    return { data, error }
+  },
+
+  /**
    * Sign out — clears session and cookies.
    */
   async signOut() {

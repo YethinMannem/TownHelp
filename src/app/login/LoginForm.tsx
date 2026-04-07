@@ -36,6 +36,8 @@ type FormState =
   | { kind: 'error'; message: string }
   | { kind: 'verify'; email: string }
   | { kind: 'resent' }
+  | { kind: 'forgot' }
+  | { kind: 'reset_sent' }
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
@@ -121,6 +123,96 @@ export default function LoginForm() {
     } else {
       setFormState({ kind: 'resent' })
     }
+  }
+
+  async function handleForgotPassword(e: React.FormEvent): Promise<void> {
+    e.preventDefault()
+    setFormState({ kind: 'loading' })
+
+    const trimmedEmail = email.trim().toLowerCase()
+    if (!trimmedEmail) {
+      setFormState({ kind: 'error', message: 'Please enter your email address.' })
+      return
+    }
+
+    const { error } = await authService.resetPassword(trimmedEmail)
+
+    if (error) {
+      setFormState({ kind: 'error', message: getFriendlyError(error.message) })
+    } else {
+      setFormState({ kind: 'reset_sent' })
+    }
+  }
+
+  // Forgot password form
+  if (formState.kind === 'forgot') {
+    return (
+      <div className="space-y-4">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-on-surface font-headline">Reset your password</h2>
+          <p className="mt-2 text-sm text-on-surface-variant font-body">
+            Enter your email and we&apos;ll send you a link to reset your password.
+          </p>
+        </div>
+
+        <form onSubmit={handleForgotPassword} className="space-y-4">
+          <div>
+            <label htmlFor="resetEmail" className="block text-sm font-medium text-on-surface font-body">
+              Email Address
+            </label>
+            <input
+              id="resetEmail"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+              className="mt-1.5 block w-full px-3.5 py-3 border border-outline-variant/40 rounded-xl bg-surface-container-lowest text-on-surface placeholder-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all font-body text-sm"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-3 px-4 rounded-xl text-sm font-semibold font-body text-on-primary bg-brand-gradient shadow-sm hover:opacity-90 active:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            {isLoading ? 'Sending...' : 'Send Reset Link'}
+          </button>
+        </form>
+
+        <button
+          type="button"
+          onClick={() => setFormState({ kind: 'idle' })}
+          className="w-full py-2 text-sm text-on-surface-variant hover:text-on-surface transition-colors font-body"
+        >
+          &larr; Back to sign in
+        </button>
+      </div>
+    )
+  }
+
+  // Password reset email sent confirmation
+  if (formState.kind === 'reset_sent') {
+    return (
+      <div className="space-y-4">
+        <div className="p-6 rounded-2xl bg-primary-fixed border border-outline-variant/20 text-center">
+          <div className="text-3xl mb-3">&#9993;</div>
+          <h2 className="text-lg font-semibold text-on-primary-fixed font-headline">Check your email</h2>
+          <p className="mt-2 text-sm text-on-primary-fixed/80 font-body">
+            If an account exists with that email, we&apos;ve sent a password reset link.
+            Check your inbox and spam folder.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setFormState({ kind: 'idle' })}
+          className="w-full py-2 text-sm text-on-surface-variant hover:text-on-surface transition-colors font-body"
+        >
+          &larr; Back to sign in
+        </button>
+      </div>
+    )
   }
 
   // Email verification pending screen
@@ -274,6 +366,18 @@ export default function LoginForm() {
             className="mt-1.5 block w-full px-3.5 py-3 border border-outline-variant/40 rounded-xl bg-surface-container-lowest text-on-surface placeholder-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all font-body text-sm"
           />
         </div>
+
+        {!isNewUser && (
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={() => setFormState({ kind: 'forgot' })}
+              className="text-sm text-primary hover:underline transition-colors font-body"
+            >
+              Forgot password?
+            </button>
+          </div>
+        )}
 
         <button
           type="submit"
