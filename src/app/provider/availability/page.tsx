@@ -1,8 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+import { requireAuthUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { CalendarClock } from 'lucide-react'
+import { getWeeklyAvailability } from '@/app/actions/provider'
 import AvailabilityForm from './AvailabilityForm'
 
 async function getAvailabilityData(userId: string) {
@@ -19,21 +20,15 @@ async function getAvailabilityData(userId: string) {
 
 function formatTimeValue(date: Date | null): string {
   if (!date) return ''
-  // date is stored with 1970-01-01 epoch; extract HH:MM from UTC time
   const hours = String(date.getUTCHours()).padStart(2, '0')
   const minutes = String(date.getUTCMinutes()).padStart(2, '0')
   return `${hours}:${minutes}`
 }
 
 export default async function AvailabilityPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const authUser = await requireAuthUser()
 
-  if (!user) {
-    redirect('/login')
-  }
-
-  const profile = await getAvailabilityData(user.id)
+  const profile = await getAvailabilityData(authUser.id)
 
   if (!profile) {
     redirect('/provider/register')
@@ -42,21 +37,26 @@ export default async function AvailabilityPage() {
   const fromValue = formatTimeValue(profile.availableFrom)
   const toValue = formatTimeValue(profile.availableTo)
 
+  const { slots } = await getWeeklyAvailability()
+  const weeklySlots = slots.map((s) => ({
+    dayOfWeek: s.dayOfWeek,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    isActive: s.isActive,
+  }))
+
   return (
     <div className="min-h-screen bg-surface pb-20 lg:pb-0 lg:pl-60">
-      {/* Frosted-glass header */}
       <div className="fixed top-0 left-0 right-0 lg:left-60 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 lg:px-6 h-14 flex items-center gap-3">
         <Link
           href="/provider/dashboard"
           className="text-sm font-body text-primary hover:underline"
         >
-          ← Dashboard
+          &larr; Dashboard
         </Link>
       </div>
 
-      {/* Content — offset below fixed header */}
       <div className="pt-14">
-        {/* Section header */}
         <div className="bg-surface-container-low border-b border-outline-variant px-4 pt-6 pb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-primary-fixed flex items-center justify-center shrink-0">
@@ -67,7 +67,7 @@ export default async function AvailabilityPage() {
                 Availability Settings
               </h1>
               <p className="font-body text-sm text-on-surface-variant">
-                Control when you appear online to customers.
+                Control when you appear online and when customers can book you.
               </p>
             </div>
           </div>
@@ -78,6 +78,7 @@ export default async function AvailabilityPage() {
             isAvailable={profile.isAvailable}
             availableFrom={fromValue}
             availableTo={toValue}
+            weeklySlots={weeklySlots}
           />
         </div>
       </div>

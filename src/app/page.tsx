@@ -1,7 +1,6 @@
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
-import { getViewerContext } from '@/lib/auth'
+import { requireAuthUser, getViewerContext } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { getServiceCategories, getProviders } from '@/app/actions/booking'
 import { getUnreadNotificationCount } from '@/services/notification.service'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -11,26 +10,22 @@ import { CATEGORY_LUCIDE_ICONS, CATEGORY_COLOR_CLASSES } from '@/lib/constants'
 import { Search, ArrowRight } from 'lucide-react'
 
 export default async function HomePage() {
-  const supabase = await createClient()
-  let user = null
-  try {
-    const { data } = await supabase.auth.getUser()
-    user = data.user
-  } catch (error) {
-    console.error('[HomePage] Failed to get user:', error)
-    redirect('/welcome')
-  }
-
-  if (!user) redirect('/welcome')
+  const authUser = await requireAuthUser('/welcome')
 
   const [viewer, categories, providers] = await Promise.all([
     getViewerContext(),
     getServiceCategories(),
     getProviders({ limit: 10 }),
   ])
-  const unreadNotificationsCount = await getUnreadNotificationCount(user.id)
+  const [unreadNotificationsCount, dbUser] = await Promise.all([
+    getUnreadNotificationCount(authUser.id),
+    prisma.user.findUnique({
+      where: { id: authUser.id },
+      select: { fullName: true },
+    }),
+  ])
 
-  const displayName = user.user_metadata?.full_name?.split(' ')[0] ?? 'there'
+  const displayName = dbUser?.fullName?.split(' ')[0] ?? 'there'
 
   return (
     <div className="min-h-screen bg-surface pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-60">

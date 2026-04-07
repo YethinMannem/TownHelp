@@ -1,5 +1,4 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuthUser } from '@/lib/auth'
 import { getProviders, getServiceCategories } from '@/app/actions/booking'
 import { ArrowLeft, SearchX } from 'lucide-react'
 import Link from 'next/link'
@@ -11,16 +10,7 @@ interface BrowsePageProps {
 }
 
 export default async function BrowsePage({ searchParams }: BrowsePageProps) {
-  const supabase = await createClient()
-  let user = null
-  try {
-    const { data } = await supabase.auth.getUser()
-    user = data.user
-  } catch (error) {
-    console.error('[BrowsePage] Auth error:', error)
-    redirect('/welcome')
-  }
-  if (!user) redirect('/welcome')
+  await requireAuthUser('/welcome')
 
   const { category, search, area } = await searchParams
 

@@ -93,13 +93,13 @@ export const getViewerContext = cache(async (): Promise<ViewerContext> => {
 
 /**
  * Same as getAuthUser but redirects to /login if not authenticated.
- * Use in server actions that require auth.
+ * Use in server actions and provider pages that require auth.
  */
-export async function requireAuthUser(): Promise<AuthUser> {
+export async function requireAuthUser(redirectTo = '/login'): Promise<AuthUser> {
   const user = await getAuthUser()
 
   if (!user) {
-    redirect('/login')
+    redirect(redirectTo)
   }
 
   return user

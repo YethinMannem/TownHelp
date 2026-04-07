@@ -1,5 +1,5 @@
 import { getServiceCategories, getMyProviderProfile } from '@/app/actions/booking'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuthUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import AddServiceForm from './AddServiceForm'
 import Link from 'next/link'
@@ -7,12 +7,7 @@ import { Layers } from 'lucide-react'
 import type { ProviderServiceItem } from '@/types'
 
 export default async function AddServicePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
+  await requireAuthUser()
 
   const profile = await getMyProviderProfile()
   if (!profile) {

@@ -29,8 +29,12 @@ export default async function ConversationPage({
   const [{ messages }, conversation] = await Promise.all([
     getMessagesAction(conversationId),
     getConversationSummary(conversationId, authUser.id),
-    markConversationAsRead(conversationId),
   ])
+
+  // Non-critical: don't block page render or fail the page if this errors
+  markConversationAsRead(conversationId).catch((error) => {
+    console.error('[ConversationPage] Failed to mark as read:', error)
+  })
 
   if (!conversation) {
     notFound()

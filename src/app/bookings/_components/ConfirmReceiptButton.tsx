@@ -24,7 +24,7 @@ export default function ConfirmReceiptButton({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-gray-600">
+      <p className="text-xs text-on-surface-variant">
         The requester marked this booking as paid offline.
       </p>
       <Button

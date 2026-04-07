@@ -192,15 +192,15 @@ export default function PaymentCheckout({ bookingId, amount, bookingNumber }: Pa
 
   if (state === 'success') {
     return (
-      <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
-        <p className="text-sm font-medium text-green-800">Payment confirmed!</p>
+      <div className="rounded-lg bg-primary-fixed border border-primary-fixed-dim p-3 text-center">
+        <p className="text-sm font-medium text-on-primary-fixed">Payment confirmed!</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-gray-600">
+      <p className="text-xs text-on-surface-variant">
         Pay the provider directly and confirm below.
       </p>
       <div className="flex gap-2">
@@ -209,8 +209,8 @@ export default function PaymentCheckout({ bookingId, amount, bookingNumber }: Pa
           onClick={() => setMethod('CASH')}
           className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
             method === 'CASH'
-              ? 'border-blue-600 bg-blue-50 text-blue-700'
-              : 'border-gray-200 text-gray-600 hover:border-gray-300'
+              ? 'border-primary bg-primary-fixed text-on-primary-fixed'
+              : 'border-outline-variant text-on-surface-variant hover:border-outline'
           }`}
         >
           Cash
@@ -220,8 +220,8 @@ export default function PaymentCheckout({ bookingId, amount, bookingNumber }: Pa
           onClick={() => setMethod('UPI')}
           className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
             method === 'UPI'
-              ? 'border-blue-600 bg-blue-50 text-blue-700'
-              : 'border-gray-200 text-gray-600 hover:border-gray-300'
+              ? 'border-primary bg-primary-fixed text-on-primary-fixed'
+              : 'border-outline-variant text-on-surface-variant hover:border-outline'
           }`}
         >
           UPI
@@ -230,17 +230,17 @@ export default function PaymentCheckout({ bookingId, amount, bookingNumber }: Pa
       <button
         onClick={handleConfirm}
         disabled={state === 'confirming'}
-        className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white
-                   transition-colors hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+        className="w-full rounded-lg bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-on-primary
+                   transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {state === 'confirming' ? 'Confirming...' : `I paid ₹${amount}`}
       </button>
 
       {errorMessage && (
-        <p className="text-xs text-red-600 text-center">{errorMessage}</p>
+        <p className="text-xs text-error text-center">{errorMessage}</p>
       )}
 
-      <p className="text-xs text-gray-500 text-center">
+      <p className="text-xs text-on-surface-variant text-center">
         Booking {bookingNumber}
       </p>
     </div>

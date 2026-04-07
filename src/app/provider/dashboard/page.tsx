@@ -1,17 +1,12 @@
 import { getMyProviderProfile, getProviderDashboard } from '@/app/actions/booking'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuthUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Star, MapPin, Plus, Clock, CheckCircle, AlertCircle, IndianRupee, CalendarDays, TrendingUp, ArrowLeft, ChevronRight } from 'lucide-react'
 import type { ProviderServiceItem, ServiceAreaItem } from '@/types'
 
 export default async function ProviderDashboard() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
+  await requireAuthUser()
 
   const profile = await getMyProviderProfile()
 
