@@ -11,7 +11,11 @@ function createPrismaClient(): PrismaClient {
     throw new Error('DATABASE_URL environment variable is not set')
   }
 
-  const adapter = new PrismaPg({ connectionString })
+  const isProduction = process.env.NODE_ENV === 'production'
+  const adapter = new PrismaPg(
+    { connectionString },
+    isProduction ? { ssl: { rejectUnauthorized: false } } : undefined
+  )
   return new PrismaClient({ adapter })
 }
 
