@@ -1,21 +1,23 @@
 import Link from 'next/link'
 import { requireAuthUser, getViewerContext } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getServiceCategories, getProviders } from '@/app/actions/booking'
+import { getServiceCategories, getProviders, getServiceAreas } from '@/app/actions/booking'
 import { getUnreadNotificationCount } from '@/services/notification.service'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { CategoryCard } from '@/components/ui/CategoryCard'
 import { ProviderCard } from '@/components/ui/ProviderCard'
+import OnboardingBanner from '@/components/OnboardingBanner'
 import { CATEGORY_LUCIDE_ICONS, CATEGORY_COLOR_CLASSES } from '@/lib/constants'
-import { Search, ArrowRight } from 'lucide-react'
+import { Search, ArrowRight, Briefcase } from 'lucide-react'
 
 export default async function HomePage() {
   const authUser = await requireAuthUser('/welcome')
 
-  const [viewer, categories, providers] = await Promise.all([
+  const [viewer, categories, { providers }, areas] = await Promise.all([
     getViewerContext(),
     getServiceCategories(),
     getProviders({ limit: 10 }),
+    getServiceAreas(),
   ])
   const [unreadNotificationsCount, dbUser] = await Promise.all([
     getUnreadNotificationCount(authUser.id),
@@ -37,6 +39,11 @@ export default async function HomePage() {
       />
 
       <div className="pt-14 px-4 lg:px-8 space-y-6 max-w-4xl mx-auto">
+
+        {/* Onboarding banner — only shown when no location set */}
+        {viewer.locationLabel === null && (
+          <OnboardingBanner areas={areas} fullName={dbUser?.fullName ?? displayName} />
+        )}
 
         {/* Greeting */}
         <section className="pt-4">
@@ -81,12 +88,12 @@ export default async function HomePage() {
         </section>
 
         {/* Popular providers */}
-        {providers.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-headline text-base font-bold text-on-surface">
-                Popular near you
-              </h2>
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-headline text-base font-bold text-on-surface">
+              Popular near you
+            </h2>
+            {providers.length > 0 && (
               <Link
                 href="/browse"
                 className="flex items-center gap-1 text-sm font-medium text-primary font-body hover:underline"
@@ -94,12 +101,46 @@ export default async function HomePage() {
                 See all
                 <ArrowRight className="w-4 h-4" />
               </Link>
+            )}
+          </div>
+
+          {providers.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-outline-variant/50 bg-surface-container-lowest p-6 text-center">
+              <p className="font-semibold text-on-surface font-body text-sm">No providers yet in your area</p>
+              <p className="text-xs text-on-surface-variant font-body mt-1 mb-4">
+                Be the first — sign up as a provider and start earning.
+              </p>
+              <Link
+                href="/browse"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary font-body hover:underline"
+              >
+                Browse all providers
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
-            {/* Horizontal scroll on mobile */}
-            <div className="md:hidden flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-              {providers.map((provider) => (
-                <div key={provider.id} className="w-[min(75vw,18rem)] shrink-0">
+          ) : (
+            <>
+              {/* Horizontal scroll on mobile */}
+              <div className="md:hidden flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+                {providers.map((provider) => (
+                  <div key={provider.id} className="w-[min(75vw,18rem)] shrink-0">
+                    <ProviderCard
+                      providerId={provider.id}
+                      name={provider.user.fullName}
+                      role={provider.services[0]?.category.name ?? 'Service Provider'}
+                      rating={provider.ratingAvg}
+                      reviewCount={provider.ratingCount}
+                      pricePerHour={provider.services[0]?.customRate ?? provider.baseRate}
+                      isVerified={provider.isVerified}
+                    />
+                  </div>
+                ))}
+              </div>
+              {/* Grid on desktop */}
+              <div className="hidden md:grid md:grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+                {providers.map((provider) => (
                   <ProviderCard
+                    key={provider.id}
                     providerId={provider.id}
                     name={provider.user.fullName}
                     role={provider.services[0]?.category.name ?? 'Service Provider'}
@@ -108,23 +149,31 @@ export default async function HomePage() {
                     pricePerHour={provider.services[0]?.customRate ?? provider.baseRate}
                     isVerified={provider.isVerified}
                   />
-                </div>
-              ))}
-            </div>
-            {/* Grid on desktop */}
-            <div className="hidden md:grid md:grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
-              {providers.map((provider) => (
-                <ProviderCard
-                  key={provider.id}
-                  providerId={provider.id}
-                  name={provider.user.fullName}
-                  role={provider.services[0]?.category.name ?? 'Service Provider'}
-                  rating={provider.ratingAvg}
-                  reviewCount={provider.ratingCount}
-                  pricePerHour={provider.services[0]?.customRate ?? provider.baseRate}
-                  isVerified={provider.isVerified}
-                />
-              ))}
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* Become a provider CTA — shown only if user is not already a provider */}
+        {!viewer.providerProfileId && (
+          <section className="pb-2">
+            <div className="flex items-center gap-4 bg-surface-container rounded-2xl px-4 py-4">
+              <div className="w-10 h-10 shrink-0 rounded-xl bg-primary-fixed flex items-center justify-center">
+                <Briefcase className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-on-surface font-body text-sm">Offer your services</p>
+                <p className="text-xs text-on-surface-variant font-body mt-0.5">
+                  Earn money helping your neighbors.
+                </p>
+              </div>
+              <Link
+                href="/provider/register"
+                className="shrink-0 text-sm font-semibold text-primary font-body hover:underline"
+              >
+                Get started
+              </Link>
             </div>
           </section>
         )}
