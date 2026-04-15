@@ -33,24 +33,34 @@ function BookingCard({
     : (booking as BookingAsProvider).requester?.fullName || 'Customer'
 
   const conversationId = booking.conversationId
+  const isProviderPending = variant === 'provider' && booking.status === 'PENDING'
 
   return (
-    <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden">
+    <div className={`bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden${isProviderPending ? ' border-l-4 border-l-primary' : ''}`}>
       {/* Card header with status accent */}
       <div className="px-4 pt-4 pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-on-surface font-body text-[15px]">
-              {booking.category?.name || 'Service'}
-            </p>
-            <p className="text-sm text-on-surface-variant font-body mt-0.5">
-              {variant === 'requester' ? 'Provider' : 'From'}: {otherParty}
-            </p>
+        {isProviderPending && (
+          <div className="mb-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold font-body bg-primary-fixed text-on-primary-fixed">
+              New Request
+            </span>
           </div>
-          <Badge variant={STATUS_BADGE_VARIANT[booking.status] ?? 'info'}>
-            {booking.status.replace('_', ' ')}
-          </Badge>
-        </div>
+        )}
+        <Link href={`/bookings/${booking.id}`} className="block">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-on-surface font-body text-[15px]">
+                {booking.category?.name || 'Service'}
+              </p>
+              <p className="text-sm text-on-surface-variant font-body mt-0.5">
+                {variant === 'requester' ? 'Provider' : 'From'}: {otherParty}
+              </p>
+            </div>
+            <Badge variant={STATUS_BADGE_VARIANT[booking.status] ?? 'info'}>
+              {booking.status.replace('_', ' ')}
+            </Badge>
+          </div>
+        </Link>
 
         {/* Meta row */}
         <div className="mt-2.5 flex items-center gap-2 flex-wrap">
@@ -207,6 +217,15 @@ export default async function BookingsPage() {
   const requester = splitBookings(asRequester)
   const provider = splitBookings(asProvider)
 
+  const providerPendingCount = provider.active.filter(b => b.status === 'PENDING').length
+
+  // Sort provider active bookings: PENDING first, then the rest
+  provider.active.sort((a, b) => {
+    if (a.status === 'PENDING' && b.status !== 'PENDING') return -1
+    if (a.status !== 'PENDING' && b.status === 'PENDING') return 1
+    return 0
+  })
+
   return (
     <div className="min-h-screen bg-surface pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-60">
       {/* Header */}
@@ -225,6 +244,7 @@ export default async function BookingsPage() {
             providerCount={provider.active.length}
             requesterPastCount={requester.past.length}
             providerPastCount={provider.past.length}
+            providerPendingCount={providerPendingCount}
             requesterContent={
               requester.active.length === 0 ? (
                 <p className="text-on-surface-variant font-body text-sm text-center py-8">
