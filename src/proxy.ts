@@ -7,7 +7,7 @@ function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.has(pathname) || pathname.startsWith('/login/') || pathname.startsWith('/api/')
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Skip server actions (POST with Next-Action header) — they handle auth internally
   if (request.method === 'POST' && request.headers.has('next-action')) {
     return NextResponse.next({ request })
