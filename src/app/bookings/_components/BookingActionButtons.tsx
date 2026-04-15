@@ -10,6 +10,7 @@ import {
   disputeBooking,
 } from '@/app/actions/booking'
 import { Button } from '@/components/ui/Button'
+import { useToast } from '@/components/ui/Toast'
 import type { BookingActions } from '@/types'
 
 interface BookingActionButtonsProps {
@@ -19,6 +20,7 @@ interface BookingActionButtonsProps {
 
 export default function BookingActionButtons({ bookingId, actions }: BookingActionButtonsProps) {
   const [isPending, startTransition] = useTransition()
+  const { toast } = useToast()
 
   const hasAnyAction = Object.values(actions).some(Boolean)
   if (!hasAnyAction) return null
@@ -27,7 +29,7 @@ export default function BookingActionButtons({ bookingId, actions }: BookingActi
     startTransition(async () => {
       const result = await action()
       if (result && typeof result === 'object' && 'error' in result) {
-        alert((result as { error: string }).error)
+        toast((result as { error: string }).error, 'error')
       }
     })
   }

@@ -4,26 +4,18 @@ import { useRouter } from 'next/navigation'
 import { useRef } from 'react'
 import { Search, X } from 'lucide-react'
 
-const HYDERABAD_AREAS = [
-  'Madhapur',
-  'Gachibowli',
-  'Kondapur',
-  'Kukatpally',
-  'HITEC City',
-  'Jubilee Hills',
-  'Banjara Hills',
-] as const
-
 interface SearchFiltersProps {
   categorySlug: string | undefined
   currentSearch: string | undefined
   currentArea: string | undefined
+  areas: string[]
 }
 
 export default function SearchFilters({
   categorySlug,
   currentSearch,
   currentArea,
+  areas,
 }: SearchFiltersProps) {
   const router = useRouter()
   const searchRef = useRef<HTMLInputElement>(null)
@@ -72,7 +64,7 @@ export default function SearchFilters({
           className="w-full flex-1 px-3.5 py-2.5 text-sm font-body bg-surface-container rounded-xl text-on-surface border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all appearance-none"
         >
           <option value="">All areas</option>
-          {HYDERABAD_AREAS.map((a) => (
+          {areas.map((a) => (
             <option key={a} value={a}>{a}</option>
           ))}
         </select>

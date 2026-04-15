@@ -1,28 +1,43 @@
 import { requireAuthUser } from '@/lib/auth'
-import { getProviders, getServiceCategories } from '@/app/actions/booking'
+import { getProviders, getServiceCategories, getServiceAreas } from '@/app/actions/booking'
 import { ArrowLeft, SearchX } from 'lucide-react'
 import Link from 'next/link'
 import { ProviderCard } from '@/components/ui/ProviderCard'
 import SearchFilters from './SearchFilters'
+import SortSelect from './SortSelect'
+import Pagination from './Pagination'
+import type { ProviderSortOption } from '@/types'
+
+const VALID_SORTS = new Set<string>(['rating', 'price_low', 'price_high', 'experience'])
+const PAGE_SIZE = 20
 
 interface BrowsePageProps {
-  searchParams: Promise<{ category?: string; search?: string; area?: string }>
+  searchParams: Promise<{ category?: string; search?: string; area?: string; sort?: string; page?: string }>
 }
 
 export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   await requireAuthUser('/welcome')
 
-  const { category, search, area } = await searchParams
+  const { category, search, area, sort: rawSort, page: rawPage } = await searchParams
 
-  const [providers, categories] = await Promise.all([
+  const sort = (VALID_SORTS.has(rawSort ?? '') ? rawSort : 'rating') as ProviderSortOption
+  const page = Math.max(parseInt(rawPage ?? '1', 10) || 1, 1)
+
+  const [{ providers, totalCount }, categories, areas] = await Promise.all([
     getProviders({
       categorySlug: category,
       search: search?.trim(),
       area: area?.trim(),
-      limit: 20,
+      sort,
+      page,
+      limit: PAGE_SIZE,
     }),
     getServiceCategories(),
+    getServiceAreas(),
   ])
+
+  const totalPages = Math.max(Math.ceil(totalCount / PAGE_SIZE), 1)
+  const filterParams = { category, search, area, sort: sort !== 'rating' ? sort : undefined }
 
   const categoryLabel = category
     ? categories.find((c) => c.slug === category)?.name ??
@@ -55,7 +70,13 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
             categorySlug={category}
             currentSearch={search}
             currentArea={area}
+            areas={areas}
           />
+
+          {/* Sort */}
+          <div className="mt-3 max-w-[200px]">
+            <SortSelect currentSort={sort} searchParams={filterParams} />
+          </div>
 
           {/* Category chips when viewing all */}
           {!category && (
@@ -74,9 +95,9 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
         </div>
 
         {/* Results summary */}
-        {(search || area) && (
+        {(search || area || totalCount > 0) && (
           <p className="text-sm text-on-surface-variant font-body mb-4">
-            {providers.length} result{providers.length !== 1 ? 's' : ''}
+            {totalCount} result{totalCount !== 1 ? 's' : ''}
             {search && (
               <> for &ldquo;<span className="font-medium text-on-surface">{search}</span>&rdquo;</>
             )}
@@ -101,21 +122,29 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
-            {providers.map((provider) => (
-              <ProviderCard
-                key={provider.id}
-                providerId={provider.id}
-                name={provider.displayName}
-                role={provider.services[0]?.category?.name ?? 'Service Provider'}
-                rating={Number(provider.ratingAvg ?? 0)}
-                reviewCount={provider.ratingCount ?? 0}
-                pricePerHour={Number(provider.services[0]?.customRate ?? provider.baseRate ?? 0)}
-                isVerified={provider.isVerified}
-                className="w-full"
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
+              {providers.map((provider) => (
+                <ProviderCard
+                  key={provider.id}
+                  providerId={provider.id}
+                  name={provider.displayName}
+                  role={provider.services[0]?.category?.name ?? 'Service Provider'}
+                  rating={Number(provider.ratingAvg ?? 0)}
+                  reviewCount={provider.ratingCount ?? 0}
+                  pricePerHour={Number(provider.services[0]?.customRate ?? provider.baseRate ?? 0)}
+                  isVerified={provider.isVerified}
+                  className="w-full"
+                />
+              ))}
+            </div>
+
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              searchParams={filterParams}
+            />
+          </>
         )}
       </div>
     </div>

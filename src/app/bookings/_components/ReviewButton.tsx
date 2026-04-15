@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { submitReview } from '@/app/actions/review'
 import { Button } from '@/components/ui/Button'
+import { useToast } from '@/components/ui/Toast'
 
 interface ReviewButtonProps {
   bookingId: string
@@ -15,6 +16,7 @@ export default function ReviewButton({ bookingId, hasReview, isCompleted }: Revi
   const [showForm, setShowForm] = useState(false)
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState('')
+  const { toast } = useToast()
 
   if (!isCompleted || hasReview) return null
 
@@ -37,8 +39,9 @@ export default function ReviewButton({ bookingId, hasReview, isCompleted }: Revi
       const result = await submitReview(bookingId, rating, comment || undefined)
       if (result.success) {
         setShowForm(false)
+        toast('Review submitted!', 'success')
       } else {
-        alert(result.error)
+        toast(result.error || 'Failed to submit review.', 'error')
       }
     })
   }

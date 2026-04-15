@@ -3,6 +3,7 @@
 import { useTransition } from 'react'
 import { confirmPaymentReceived } from '@/app/actions/booking'
 import { Button } from '@/components/ui/Button'
+import { useToast } from '@/components/ui/Toast'
 
 interface ConfirmReceiptButtonProps {
   bookingId: string
@@ -12,12 +13,15 @@ export default function ConfirmReceiptButton({
   bookingId,
 }: ConfirmReceiptButtonProps) {
   const [isPending, startTransition] = useTransition()
+  const { toast } = useToast()
 
   function handleConfirm(): void {
     startTransition(async () => {
       const result = await confirmPaymentReceived(bookingId)
       if (!result.success) {
-        alert(result.error ?? 'Failed to confirm payment receipt.')
+        toast(result.error ?? 'Failed to confirm payment receipt.', 'error')
+      } else {
+        toast('Payment receipt confirmed!', 'success')
       }
     })
   }

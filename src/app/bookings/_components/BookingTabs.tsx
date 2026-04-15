@@ -12,6 +12,7 @@ interface BookingTabsProps {
   providerPastContent?: React.ReactNode
   requesterPastCount?: number
   providerPastCount?: number
+  providerPendingCount?: number
 }
 
 export default function BookingTabs({
@@ -23,9 +24,14 @@ export default function BookingTabs({
   providerPastContent,
   requesterPastCount = 0,
   providerPastCount = 0,
+  providerPendingCount = 0,
 }: BookingTabsProps) {
   const [activeTab, setActiveTab] = useState<'booked' | 'received'>(
-    requesterCount > 0 || requesterPastCount > 0 ? 'booked' : 'received'
+    providerPendingCount > 0
+      ? 'received'
+      : requesterCount > 0 || requesterPastCount > 0
+        ? 'booked'
+        : 'received'
   )
 
   const pastContent = activeTab === 'booked' ? requesterPastContent : providerPastContent
@@ -58,10 +64,17 @@ export default function BookingTabs({
               : 'text-on-surface-variant hover:text-on-surface'
           )}
         >
-          Received
-          {(providerCount > 0 || providerPastCount > 0) && (
-            <span className="ml-1.5 text-xs font-normal whitespace-nowrap">({providerCount + providerPastCount})</span>
-          )}
+          <span className="inline-flex items-center justify-center gap-1.5">
+            Received
+            {(providerCount > 0 || providerPastCount > 0) && (
+              <span className="text-xs font-normal whitespace-nowrap">({providerCount + providerPastCount})</span>
+            )}
+            {providerPendingCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold leading-none">
+                {providerPendingCount}
+              </span>
+            )}
+          </span>
         </button>
       </div>
 

@@ -2,8 +2,9 @@ import { getMyProviderProfile, getProviderDashboard } from '@/app/actions/bookin
 import { requireAuthUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Star, MapPin, Plus, Clock, CheckCircle, AlertCircle, IndianRupee, CalendarDays, TrendingUp, ArrowLeft, ChevronRight } from 'lucide-react'
+import { Star, MapPin, Plus, Clock, CheckCircle, AlertCircle, IndianRupee, CalendarDays, TrendingUp, ArrowLeft, ChevronRight, Edit3 } from 'lucide-react'
 import type { ProviderServiceItem, ServiceAreaItem } from '@/types'
+import WhatsAppSettings from './_components/WhatsAppSettings'
 
 export default async function ProviderDashboard() {
   await requireAuthUser()
@@ -200,6 +201,10 @@ export default async function ProviderDashboard() {
             Settings
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <WhatsAppSettings
+              whatsappOptIn={profile.whatsappOptIn}
+              whatsappNumber={profile.whatsappNumber}
+            />
             <Link
               href="/provider/availability"
               className="flex items-center gap-3 w-full bg-surface-container-lowest rounded-xl border border-outline-variant/20 px-4 py-3.5 hover:bg-surface-container/50 transition-colors"
@@ -226,6 +231,21 @@ export default async function ProviderDashboard() {
                 <p className="font-body font-medium text-on-surface text-sm">My Bookings</p>
                 <p className="font-body text-xs text-on-surface-variant mt-0.5">
                   View and manage all bookings
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-on-surface-variant shrink-0" />
+            </Link>
+            <Link
+              href="/provider/edit"
+              className="flex items-center gap-3 w-full bg-surface-container-lowest rounded-xl border border-outline-variant/20 px-4 py-3.5 hover:bg-surface-container/50 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-lg bg-tertiary-fixed flex items-center justify-center shrink-0">
+                <Edit3 className="w-4 h-4 text-tertiary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-body font-medium text-on-surface text-sm">Edit Profile</p>
+                <p className="font-body text-xs text-on-surface-variant mt-0.5">
+                  Update name, rate and bio
                 </p>
               </div>
               <ChevronRight className="w-4 h-4 text-on-surface-variant shrink-0" />

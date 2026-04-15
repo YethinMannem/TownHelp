@@ -9,9 +9,12 @@ import { confirmOfflinePayment, finalizeOfflinePayment } from '@/services/paymen
 import { isValidUUID } from '@/lib/validation'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getProviderDashboardStats as fetchDashboardStats } from '@/services/dashboard.service'
+import { sendPushToUser } from '@/lib/push'
 import type {
   ServiceCategoryItem,
   ProviderListItem,
+  ProviderListResult,
+  ProviderSortOption,
   ProviderDashboard,
   MyBookings,
   BookingTransitionResult,
@@ -43,108 +46,144 @@ export async function getServiceCategories(): Promise<ServiceCategoryItem[]> {
   }
 }
 
+// Public action — distinct areas with active providers
+export async function getServiceAreas(): Promise<string[]> {
+  try {
+    const areas = await prisma.serviceArea.findMany({
+      where: {
+        provider: { isAvailable: true, deletedAt: null },
+      },
+      select: { areaName: true },
+      distinct: ['areaName'],
+      orderBy: { areaName: 'asc' },
+    })
+    return areas.map((a) => a.areaName)
+  } catch (error) {
+    console.error('[getServiceAreas]:', error)
+    return []
+  }
+}
+
 interface GetProvidersFilters {
   categorySlug?: string
   search?: string
   area?: string
+  sort?: ProviderSortOption
   page?: number
   limit?: number
 }
 
 // Public action — provider discovery data
+const SORT_ORDER_MAP: Record<ProviderSortOption, Record<string, string>> = {
+  rating: { ratingAvg: 'desc' },
+  price_low: { baseRate: 'asc' },
+  price_high: { baseRate: 'desc' },
+  experience: { completedBookings: 'desc' },
+}
+
 export async function getProviders(
   categorySlugOrFilters?: string | GetProvidersFilters,
-): Promise<ProviderListItem[]> {
+): Promise<ProviderListResult> {
   // Accept either the legacy positional string or the new filters object
   const filters: GetProvidersFilters =
     typeof categorySlugOrFilters === 'string'
       ? { categorySlug: categorySlugOrFilters }
       : (categorySlugOrFilters ?? {})
 
-  const { categorySlug, search, area } = filters
+  const { categorySlug, search, area, sort = 'rating' } = filters
 
   const pageSize = Math.min(filters.limit ?? 20, 50) // Max 50 per page
   const page = Math.max(filters.page ?? 1, 1)
   const skip = (page - 1) * pageSize
 
-  try {
-    const providers = await prisma.providerProfile.findMany({
-      where: {
-        isAvailable: true,
-        deletedAt: null,
-        ...(categorySlug && {
-          services: {
-            some: {
-              isActive: true,
-              category: { slug: categorySlug, isActive: true },
-            },
-          },
-        }),
-        ...(search && {
-          OR: [
-            { displayName: { contains: search, mode: 'insensitive' } },
-            { bio: { contains: search, mode: 'insensitive' } },
-          ],
-        }),
-        ...(area && {
-          serviceAreas: {
-            some: { areaName: { contains: area, mode: 'insensitive' } },
-          },
-        }),
-      },
-      select: {
-        id: true,
-        displayName: true,
-        bio: true,
-        baseRate: true,
-        ratingAvg: true,
-        ratingCount: true,
-        completedBookings: true,
-        isVerified: true,
-        availableFrom: true,
-        availableTo: true,
-        user: {
-          select: { fullName: true },
-        },
-        services: {
-          where: {
-            isActive: true,
-            ...(categorySlug && {
-              category: { slug: categorySlug },
-            }),
-          },
-          select: {
-            id: true,
-            customRate: true,
-            rateType: true,
-            description: true,
-            category: {
-              select: { id: true, name: true, slug: true, iconName: true },
-            },
-          },
-        },
-        serviceAreas: {
-          select: { areaName: true, city: true },
+  const where = {
+    isAvailable: true,
+    deletedAt: null,
+    ...(categorySlug && {
+      services: {
+        some: {
+          isActive: true,
+          category: { slug: categorySlug, isActive: true },
         },
       },
-      take: pageSize,
-      skip,
-      orderBy: { ratingAvg: 'desc' },
-    })
+    }),
+    ...(search && {
+      OR: [
+        { displayName: { contains: search, mode: 'insensitive' as const } },
+        { bio: { contains: search, mode: 'insensitive' as const } },
+      ],
+    }),
+    ...(area && {
+      serviceAreas: {
+        some: { areaName: { contains: area, mode: 'insensitive' as const } },
+      },
+    }),
+  }
 
-    return providers.map((p) => ({
-      ...p,
-      baseRate: Number(p.baseRate),
-      ratingAvg: Number(p.ratingAvg),
-      services: p.services.map((s) => ({
-        ...s,
-        customRate: s.customRate ? Number(s.customRate) : null,
+  const orderBy = SORT_ORDER_MAP[sort] ?? SORT_ORDER_MAP.rating
+
+  try {
+    const [providers, totalCount] = await Promise.all([
+      prisma.providerProfile.findMany({
+        where,
+        select: {
+          id: true,
+          displayName: true,
+          bio: true,
+          baseRate: true,
+          ratingAvg: true,
+          ratingCount: true,
+          completedBookings: true,
+          isVerified: true,
+          availableFrom: true,
+          availableTo: true,
+          user: {
+            select: { fullName: true },
+          },
+          services: {
+            where: {
+              isActive: true,
+              ...(categorySlug && {
+                category: { slug: categorySlug },
+              }),
+            },
+            select: {
+              id: true,
+              customRate: true,
+              rateType: true,
+              description: true,
+              category: {
+                select: { id: true, name: true, slug: true, iconName: true },
+              },
+            },
+          },
+          serviceAreas: {
+            select: { areaName: true, city: true },
+          },
+        },
+        take: pageSize,
+        skip,
+        orderBy,
+      }),
+      prisma.providerProfile.count({ where }),
+    ])
+
+    return {
+      providers: providers.map((p) => ({
+        ...p,
+        baseRate: Number(p.baseRate),
+        ratingAvg: Number(p.ratingAvg),
+        services: p.services.map((s) => ({
+          ...s,
+          customRate: s.customRate ? Number(s.customRate) : null,
+        })),
+        areas: p.serviceAreas,
       })),
-      areas: p.serviceAreas,
-    }))
+      totalCount,
+    }
   } catch (error) {
     console.error('[getProviders]:', error)
-    return []
+    return { providers: [], totalCount: 0 }
   }
 }
 
@@ -337,6 +376,16 @@ export async function createBooking(formData: FormData): Promise<void> {
           data: { bookingId: createdBookingId, providerId, categoryId },
         },
       })
+
+      try {
+        await sendPushToUser(providerProfile.userId, {
+          title: 'New Booking Request',
+          body: 'Someone booked your service on TownHelp.',
+          url: '/bookings',
+        })
+      } catch (pushError) {
+        console.error('[createBooking] push notification failed:', pushError)
+      }
     }
   } catch (notifError) {
     console.error('[createBooking] notification failed:', notifError)
@@ -573,6 +622,10 @@ export async function getMyProviderProfile(): Promise<ProviderDashboard | null> 
       ratingCount: true,
       isAvailable: true,
       isVerified: true,
+      whatsappOptIn: true,
+      user: {
+        select: { whatsappNumber: true },
+      },
       services: {
         where: { isActive: true },
         select: {
@@ -597,11 +650,141 @@ export async function getMyProviderProfile(): Promise<ProviderDashboard | null> 
     ...profile,
     baseRate: Number(profile.baseRate),
     ratingAvg: Number(profile.ratingAvg),
+    whatsappOptIn: profile.whatsappOptIn,
+    whatsappNumber: profile.user.whatsappNumber,
     services: profile.services.map((s) => ({
       ...s,
       customRate: s.customRate ? Number(s.customRate) : null,
     })),
     areas: profile.serviceAreas,
+  }
+}
+
+// =============================================================================
+// Booking Detail
+// =============================================================================
+
+export interface BookingDetail {
+  id: string
+  bookingNumber: string
+  status: import('@/types').BookingStatus
+  quotedRate: number | null
+  finalAmount: number | null
+  serviceAddress: string | null
+  requesterNotes: string | null
+  scheduledAt: Date | null
+  createdAt: Date
+  confirmedAt: Date | null
+  completedAt: Date | null
+  cancelledAt: Date | null
+  conversationId: string | null
+  role: 'requester' | 'provider'
+  otherParty: {
+    name: string
+    phone: string | null
+  }
+  category: {
+    name: string
+    iconName: string | null
+  }
+  actions: import('@/types').BookingActions
+  hasReview: boolean
+  paymentStatus: 'NONE' | import('@/types').PaymentStatus
+}
+
+export async function getBookingById(id: string): Promise<BookingDetail | null> {
+  if (!isValidUUID(id)) return null
+
+  const authUser = await requireAuthUser()
+
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        bookingNumber: true,
+        status: true,
+        quotedRate: true,
+        finalAmount: true,
+        serviceAddress: true,
+        requesterNotes: true,
+        scheduledStart: true,
+        createdAt: true,
+        confirmedAt: true,
+        completedAt: true,
+        cancelledAt: true,
+        requesterId: true,
+        review: { select: { id: true } },
+        payment: { select: { status: true } },
+        conversation: { select: { id: true } },
+        provider: {
+          select: {
+            userId: true,
+            displayName: true,
+            user: {
+              select: { phone: true },
+            },
+          },
+        },
+        requester: {
+          select: {
+            fullName: true,
+            phone: true,
+          },
+        },
+        category: {
+          select: { name: true, iconName: true },
+        },
+      },
+    })
+
+    if (!booking) return null
+
+    // Determine viewer role — return null if viewer is neither party
+    let role: 'requester' | 'provider'
+    if (booking.requesterId === authUser.id) {
+      role = 'requester'
+    } else if (booking.provider.userId === authUser.id) {
+      role = 'provider'
+    } else {
+      return null
+    }
+
+    const otherParty =
+      role === 'requester'
+        ? { name: booking.provider.displayName, phone: booking.provider.user.phone }
+        : { name: booking.requester.fullName, phone: booking.requester.phone }
+
+    return {
+      id: booking.id,
+      bookingNumber: booking.bookingNumber,
+      status: booking.status,
+      quotedRate: booking.quotedRate ? Number(booking.quotedRate) : null,
+      finalAmount: booking.finalAmount ? Number(booking.finalAmount) : null,
+      serviceAddress: booking.serviceAddress,
+      requesterNotes: booking.requesterNotes,
+      scheduledAt: booking.scheduledStart,
+      createdAt: booking.createdAt,
+      confirmedAt: booking.confirmedAt,
+      completedAt: booking.completedAt,
+      cancelledAt: booking.cancelledAt,
+      conversationId: booking.conversation?.id ?? null,
+      role,
+      otherParty,
+      category: booking.category,
+      actions: computeBookingActions(
+        booking.status,
+        authUser.id,
+        booking.requesterId,
+        booking.provider.userId,
+        booking.payment?.status ?? undefined,
+      ),
+      hasReview: booking.review !== null,
+      paymentStatus: booking.payment?.status ?? 'NONE',
+    }
+  } catch (error) {
+    console.error('[getBookingById]:', error)
+    return null
   }
 }
 

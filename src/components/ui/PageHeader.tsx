@@ -28,16 +28,32 @@ export function PageHeader({
       )}
       {...props}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        {showLocation && (
-          <div className="w-7 h-7 rounded-full bg-primary-fixed flex items-center justify-center">
+      {showLocation ? (
+        <Link
+          href="/profile"
+          className="flex items-center gap-2 min-w-0 rounded-full hover:bg-surface-container transition-colors px-1 py-1 -mx-1"
+          aria-label="Set your location"
+        >
+          <div className="w-7 h-7 rounded-full bg-primary-fixed flex items-center justify-center shrink-0">
             <MapPin className="w-3.5 h-3.5 text-primary" />
           </div>
-        )}
-        <span className="font-headline font-bold text-base text-on-surface truncate max-w-full">
-          {showLocation ? locationLabel : title}
-        </span>
-      </div>
+          <span
+            className={`font-headline font-bold text-base truncate max-w-full ${
+              locationLabel === 'Set your location'
+                ? 'text-on-surface-variant'
+                : 'text-on-surface'
+            }`}
+          >
+            {locationLabel}
+          </span>
+        </Link>
+      ) : (
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-headline font-bold text-base text-on-surface truncate max-w-full">
+            {title}
+          </span>
+        </div>
+      )}
 
       {showNotifications && (
         <Link

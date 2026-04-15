@@ -1,14 +1,15 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Star, MapPin, BadgeCheck, Briefcase } from 'lucide-react'
+import { ArrowLeft, Star, MapPin, BadgeCheck, Briefcase, Clock, MessageCircle } from 'lucide-react'
 import { requireAuthUser } from '@/lib/auth'
-import { getProviderById } from '@/app/actions/provider'
+import { getProviderById, getWeeklyAvailability } from '@/app/actions/provider'
 import { isFavorited } from '@/app/actions/favorite'
 import { getProviderReviews } from '@/app/actions/review'
 import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
 import FavoriteButton from './FavoriteButton'
 import BookButton from '@/app/browse/BookButton'
+import type { Metadata } from 'next'
 import type { ReviewItem } from '@/types'
 
 const AVATAR_COLORS = [
@@ -45,6 +46,29 @@ interface ProviderPageProps {
   params: Promise<{ id: string }>
 }
 
+export async function generateMetadata({ params }: ProviderPageProps): Promise<Metadata> {
+  const { id } = await params
+  const provider = await getProviderById(id)
+
+  if (!provider) {
+    return { title: 'Provider Not Found — TownHelp' }
+  }
+
+  const primaryService = provider.services[0]?.category.name ?? 'Service Provider'
+  return {
+    title: `${provider.displayName} — ${primaryService} | TownHelp`,
+    description: provider.bio
+      ?? `Book ${provider.displayName} for ${primaryService} services on TownHelp.`,
+  }
+}
+
+function formatTime(time: string): string {
+  const [h, m] = time.split(':').map(Number)
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return m === 0 ? `${hour}${suffix}` : `${hour}:${String(m).padStart(2, '0')}${suffix}`
+}
+
 export default async function ProviderPage({ params }: ProviderPageProps) {
   const authUser = await requireAuthUser()
 
@@ -52,9 +76,10 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
   const provider = await getProviderById(id)
   if (!provider) notFound()
 
-  const [favorited, reviews] = await Promise.all([
+  const [favorited, reviews, { slots: availabilitySlots }] = await Promise.all([
     isFavorited(id),
     getProviderReviews(provider.userId),
+    getWeeklyAvailability(id),
   ])
 
   const name = provider.displayName
@@ -62,6 +87,14 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
   const reviewCount = provider.ratingCount
   const isOwnProfile = provider.userId === authUser.id
   const canBook = !isOwnProfile && provider.isAvailable && provider.services.length > 0
+
+  const rawPhone = provider.user.whatsappNumber ?? provider.user.phone
+  const waPhone = rawPhone?.replace(/\D/g, '') ?? null
+  const waMessage = `Hi ${name}, I found your profile on TownHelp. I'm interested in your ${provider.services[0]?.category.name ?? 'service'} service.`
+  const waUrl =
+    !isOwnProfile && provider.whatsappOptIn && waPhone
+      ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}`
+      : null
 
   return (
     <div className="min-h-screen bg-surface pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-8 lg:pl-60">
@@ -206,6 +239,31 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
             </div>
           )}
 
+          {/* Weekly availability */}
+          {availabilitySlots.some((s) => s.isActive) && (
+            <div>
+              <h2 className="font-headline text-sm font-bold text-on-surface mb-2.5">
+                Availability
+              </h2>
+              <div className="flex flex-col gap-1.5">
+                {availabilitySlots
+                  .filter((s) => s.isActive)
+                  .map((slot) => (
+                    <div
+                      key={slot.dayOfWeek}
+                      className="flex items-center gap-2 text-sm font-body"
+                    >
+                      <Clock className="w-3.5 h-3.5 text-outline shrink-0" />
+                      <span className="w-20 font-medium text-on-surface">{slot.dayName}</span>
+                      <span className="text-on-surface-variant">
+                        {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {/* Reviews */}
           <div>
             <h2 className="font-headline text-sm font-bold text-on-surface mb-2.5">
@@ -275,7 +333,7 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
       <div className="fixed bottom-16 lg:bottom-0 left-0 lg:left-60 right-0 z-30 bg-surface-container-lowest/95 backdrop-blur-md border-t border-outline-variant/20">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 px-4 lg:px-8 py-3 max-w-4xl mx-auto">
           <FavoriteButton providerId={provider.id} initialFavorited={favorited} />
-          <div className="flex-1">
+          <div className="flex-1 flex items-center gap-2">
             {canBook ? (
               <BookButton
                 providerId={provider.id}
@@ -285,12 +343,7 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
               />
             ) : (
               <div
-                className={cn(
-                  'w-full rounded-xl px-4 py-3 text-center text-sm font-medium font-body border',
-                  isOwnProfile || !provider.isAvailable
-                    ? 'bg-surface-container text-on-surface-variant border-outline-variant/30'
-                    : 'bg-surface-container text-on-surface-variant border-outline-variant/30'
-                )}
+                className="flex-1 w-full rounded-xl px-4 py-3 text-center text-sm font-medium font-body border bg-surface-container text-on-surface-variant border-outline-variant/30"
               >
                 {isOwnProfile
                   ? 'This is your profile'
@@ -298,6 +351,18 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
                   ? 'Currently unavailable for bookings'
                   : 'No active services available to book'}
               </div>
+            )}
+            {waUrl && (
+              <a
+                href={waUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 flex items-center gap-2 px-4 py-3 rounded-xl bg-[#25d366] text-white text-sm font-semibold font-body hover:opacity-90 active:opacity-80 transition-opacity"
+                aria-label="Message on WhatsApp"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">WhatsApp</span>
+              </a>
             )}
           </div>
         </div>

@@ -176,6 +176,7 @@ model ProviderProfile {
   availableFrom       DateTime?         @map("available_from") @db.Time()
   availableTo         DateTime?         @map("available_to") @db.Time()
   isBackgroundChecked Boolean           @default(false) @map("is_background_checked")
+  whatsappOptIn       Boolean           @default(false) @map("whatsapp_opt_in")
   documents           Json?             @db.JsonB
   latitude            Float?
   longitude           Float?

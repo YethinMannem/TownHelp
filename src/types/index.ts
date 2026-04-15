@@ -61,6 +61,13 @@ export interface ProviderListItem {
   areas: ServiceAreaItem[]
 }
 
+export type ProviderSortOption = 'rating' | 'price_low' | 'price_high' | 'experience'
+
+export interface ProviderListResult {
+  providers: ProviderListItem[]
+  totalCount: number
+}
+
 export interface ProviderDashboard {
   id: string
   displayName: string
@@ -70,6 +77,8 @@ export interface ProviderDashboard {
   ratingCount: number
   isAvailable: boolean
   isVerified: boolean
+  whatsappOptIn: boolean
+  whatsappNumber: string | null
   services: ProviderServiceItem[]
   areas: ServiceAreaItem[]
 }

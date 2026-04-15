@@ -139,31 +139,39 @@ export async function addProviderService(formData: FormData): Promise<void> {
 
 // --- Profile Editing ---
 
-export async function updateProviderProfile(formData: FormData): Promise<void> {
-  const authUser = await requireAuthUser()
-  const profile = await requireProviderProfile(authUser.id)
+export async function updateProviderProfile(
+  formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const authUser = await requireAuthUser()
+    const profile = await requireProviderProfile(authUser.id)
 
-  const displayName = formData.get('displayName') as string
-  const baseRate = parseFloat(formData.get('baseRate') as string)
-  const bio = formData.get('bio') as string
-  const isAvailable = formData.get('isAvailable') === 'true'
+    const displayName = formData.get('displayName') as string
+    const baseRate = parseFloat(formData.get('baseRate') as string)
+    const bio = formData.get('bio') as string
+    const isAvailable = formData.get('isAvailable') === 'true'
 
-  if (!displayName?.trim() || isNaN(baseRate) || baseRate <= 0) {
-    throw new Error('Display name and a valid base rate are required.')
+    if (!displayName?.trim() || isNaN(baseRate) || baseRate <= 0) {
+      return { success: false, error: 'Display name and a valid base rate are required.' }
+    }
+
+    await prisma.providerProfile.update({
+      where: { id: profile.id },
+      data: {
+        displayName: displayName.trim(),
+        baseRate,
+        bio: bio?.trim() || null,
+        isAvailable,
+      },
+    })
+
+    revalidatePath('/provider/dashboard')
+    revalidatePath('/provider/edit')
+    return { success: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to update profile.'
+    return { success: false, error: message }
   }
-
-  await prisma.providerProfile.update({
-    where: { id: profile.id },
-    data: {
-      displayName: displayName.trim(),
-      baseRate,
-      bio: bio?.trim() || null,
-      isAvailable,
-    },
-  })
-
-  revalidatePath('/provider/dashboard')
-  redirect('/provider/dashboard')
 }
 
 // --- Service Editing ---
@@ -299,6 +307,11 @@ export interface ProviderDetail {
   completedBookings: number
   isVerified: boolean
   isAvailable: boolean
+  whatsappOptIn: boolean
+  user: {
+    whatsappNumber: string | null
+    phone: string | null
+  }
   services: ProviderServiceItem[]
   areas: {
     areaName: string
@@ -341,6 +354,13 @@ export async function getProviderById(id: string): Promise<ProviderDetail | null
           },
         },
       },
+      whatsappOptIn: true,
+      user: {
+        select: {
+          whatsappNumber: true,
+          phone: true,
+        },
+      },
       serviceAreas: {
         select: {
           areaName: true,
@@ -366,6 +386,11 @@ export async function getProviderById(id: string): Promise<ProviderDetail | null
     completedBookings: profile.completedBookings,
     isVerified: profile.isVerified,
     isAvailable: profile.isAvailable,
+    whatsappOptIn: profile.whatsappOptIn,
+    user: {
+      whatsappNumber: profile.user.whatsappNumber,
+      phone: profile.user.phone,
+    },
     services: profile.services.map((s) => ({
       id: s.id,
       customRate: s.customRate ? Number(s.customRate) : null,
@@ -553,4 +578,73 @@ export async function getWeeklyAvailability(
   }
 
   return { slots }
+}
+
+// --- WhatsApp settings ---
+
+interface WhatsAppResult {
+  success: boolean
+  error?: string
+}
+
+/** Toggle whether this provider's WhatsApp contact button is shown on their public profile. */
+export async function toggleWhatsappOptIn(enabled: boolean): Promise<WhatsAppResult> {
+  const authUser = await requireAuthUser()
+  const profile = await requireProviderProfile(authUser.id)
+
+  try {
+    await prisma.providerProfile.update({
+      where: { id: profile.id },
+      data: { whatsappOptIn: enabled },
+    })
+    revalidatePath('/provider/dashboard')
+    revalidatePath('/provider', 'layout')
+    return { success: true }
+  } catch (error) {
+    console.error('[toggleWhatsappOptIn]:', error)
+    return { success: false, error: 'Failed to update WhatsApp setting.' }
+  }
+}
+
+/** Normalize an Indian phone number to +91XXXXXXXXXX format. Returns null if invalid. */
+function normalizeIndianPhone(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  // Strip leading 91 if 12 digits, otherwise expect 10 digits
+  const local = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits
+  if (local.length !== 10) return null
+  return `+91${local}`
+}
+
+/** Update the WhatsApp number stored on the provider's User record. */
+export async function updateWhatsappNumber(formData: FormData): Promise<WhatsAppResult> {
+  const authUser = await requireAuthUser()
+
+  const raw = ((formData.get('whatsappNumber') as string | null) ?? '').trim()
+
+  if (!raw) {
+    // Allow clearing the number
+    await prisma.user.update({
+      where: { id: authUser.id },
+      data: { whatsappNumber: null },
+    })
+    revalidatePath('/provider/dashboard')
+    return { success: true }
+  }
+
+  const normalized = normalizeIndianPhone(raw)
+  if (!normalized) {
+    return { success: false, error: 'Enter a valid 10-digit Indian mobile number.' }
+  }
+
+  try {
+    await prisma.user.update({
+      where: { id: authUser.id },
+      data: { whatsappNumber: normalized },
+    })
+    revalidatePath('/provider/dashboard')
+    return { success: true }
+  } catch (error) {
+    console.error('[updateWhatsappNumber]:', error)
+    return { success: false, error: 'Failed to save number. Please try again.' }
+  }
 }
