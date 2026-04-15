@@ -15,6 +15,8 @@ function createPrismaClient(): PrismaClient {
   const adapter = new PrismaPg({
     connectionString,
     ...(isProduction && { ssl: { rejectUnauthorized: false } }),
+    // pgBouncer transaction mode (port 6543) requires statement_cache_size=0
+    ...(isProduction && { statement_cache_size: 0 }),
   })
   return new PrismaClient({ adapter })
 }
