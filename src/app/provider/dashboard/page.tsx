@@ -2,9 +2,10 @@ import { getMyProviderProfile, getProviderDashboard } from '@/app/actions/bookin
 import { requireAuthUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Star, MapPin, Plus, Clock, CheckCircle, AlertCircle, IndianRupee, CalendarDays, TrendingUp, ArrowLeft, ChevronRight, Edit3 } from 'lucide-react'
+import { Star, MapPin, Plus, Clock, CheckCircle, AlertCircle, IndianRupee, CalendarDays, TrendingUp, ArrowLeft, ChevronRight, Edit3, Bell } from 'lucide-react'
 import type { ProviderServiceItem, ServiceAreaItem } from '@/types'
 import WhatsAppSettings from './_components/WhatsAppSettings'
+import AvailabilityToggle from './_components/AvailabilityToggle'
 
 export default async function ProviderDashboard() {
   await requireAuthUser()
@@ -41,6 +42,66 @@ export default async function ProviderDashboard() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 lg:px-8 pt-14 mt-4 space-y-5">
+        {/* Onboarding checklist — shown until all 3 steps complete */}
+        {(profile.services.length === 0 || !stats || stats.bookingsTotal === 0) && (() => {
+          const steps = [
+            {
+              label: 'Add your first service',
+              done: profile.services.length > 0,
+              href: '/provider/add-service',
+            },
+            {
+              label: 'Set your availability',
+              done: profile.activeAvailabilityCount > 0,
+              href: '/provider/availability',
+            },
+            {
+              label: 'Complete your first booking',
+              done: (stats?.bookingsTotal ?? 0) > 0,
+              href: null,
+            },
+          ]
+          const doneCount = steps.filter(s => s.done).length
+          return (
+            <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-headline text-sm font-bold text-on-surface">Get started</h2>
+                <span className="text-xs font-body text-on-surface-variant">{doneCount}/3 done</span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1.5 bg-surface-container rounded-full mb-4 overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all"
+                  style={{ width: `${(doneCount / 3) * 100}%` }}
+                />
+              </div>
+              <div className="space-y-2.5">
+                {steps.map((step) => {
+                  const inner = (
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? 'bg-primary' : 'border-2 border-outline-variant'}`}>
+                        {step.done && <CheckCircle className="w-3 h-3 text-on-primary" />}
+                      </div>
+                      <span className={`text-sm font-body ${step.done ? 'line-through text-on-surface-variant' : 'text-on-surface font-medium'}`}>
+                        {step.label}
+                      </span>
+                      {!step.done && step.href && <ChevronRight className="w-4 h-4 text-on-surface-variant ml-auto shrink-0" />}
+                    </div>
+                  )
+                  if (!step.done && step.href) {
+                    return (
+                      <Link key={step.label} href={step.href} className="block hover:bg-surface-container/40 rounded-xl px-2 py-1 -mx-2 transition-colors">
+                        {inner}
+                      </Link>
+                    )
+                  }
+                  return <div key={step.label} className="px-2 py-1">{inner}</div>
+                })}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Profile Card */}
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -123,18 +184,32 @@ export default async function ProviderDashboard() {
               </p>
               <p className="text-xs text-on-surface-variant font-body">rate</p>
             </div>
-            <div className="bg-error-container/30 rounded-xl p-3.5">
+            <Link
+              href="/bookings"
+              className="bg-primary-fixed/40 rounded-xl p-3.5 hover:bg-primary-fixed/60 transition-colors"
+            >
               <div className="flex items-center gap-1.5 mb-1">
-                <Clock className="w-4 h-4 text-error" />
-                <span className="text-xs text-on-surface-variant font-body">Pending</span>
+                <Bell className="w-4 h-4 text-primary" />
+                <span className="text-xs text-on-surface-variant font-body">New Requests</span>
               </div>
               <p className="font-headline text-xl font-bold text-on-surface">
                 {stats.pendingRequests}
               </p>
-              <p className="text-xs text-on-surface-variant font-body">requests</p>
-            </div>
+              <p className="text-xs text-primary font-body font-medium">
+                {stats.pendingRequests > 0 ? 'Tap to review →' : 'None pending'}
+              </p>
+            </Link>
           </div>
         )}
+
+        {!stats && (
+          <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest px-4 py-3">
+            <p className="text-xs text-on-surface-variant font-body">Stats unavailable — please refresh.</p>
+          </div>
+        )}
+
+        {/* Availability toggle — most-used action, lives at the top */}
+        <AvailabilityToggle isAvailable={profile.isAvailable} />
 
         {/* Services Section */}
         <div>
@@ -183,7 +258,7 @@ export default async function ProviderDashboard() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-body font-bold text-primary text-sm">
-                      ₹{service.customRate || profile.baseRate}
+                      ₹{service.customRate ?? profile.baseRate}
                     </p>
                     <p className="font-body text-xs text-on-surface-variant">
                       /{service.rateType?.toLowerCase() || 'hr'}
@@ -201,6 +276,7 @@ export default async function ProviderDashboard() {
             Settings
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {/* Notifications via WhatsApp */}
             <WhatsAppSettings
               whatsappOptIn={profile.whatsappOptIn}
               whatsappNumber={profile.whatsappNumber}

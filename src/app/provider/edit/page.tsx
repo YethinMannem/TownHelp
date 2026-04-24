@@ -1,14 +1,30 @@
 import { requireAuthUser } from '@/lib/auth'
 import { getMyProviderProfile } from '@/app/actions/booking'
+import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import EditProviderForm from './_components/EditProviderForm'
 
 export default async function ProviderEditPage() {
-  await requireAuthUser()
+  const authUser = await requireAuthUser()
 
-  const profile = await getMyProviderProfile()
+  const [profile, geoData] = await Promise.all([
+    getMyProviderProfile(),
+    prisma.providerProfile.findUnique({
+      where: { userId: authUser.id, deletedAt: null },
+      select: {
+        latitude: true,
+        longitude: true,
+        maxTravelRadiusKm: true,
+        serviceAreas: {
+          where: { isPrimary: true },
+          select: { areaName: true },
+          take: 1,
+        },
+      },
+    }),
+  ])
 
   if (!profile) {
     redirect('/provider/register')
@@ -37,6 +53,10 @@ export default async function ProviderEditPage() {
           bio={profile.bio}
           baseRate={profile.baseRate}
           isAvailable={profile.isAvailable}
+          currentLat={geoData?.latitude ?? null}
+          currentLng={geoData?.longitude ?? null}
+          currentLocationLabel={geoData?.serviceAreas[0]?.areaName ?? ''}
+          currentRadius={geoData?.maxTravelRadiusKm ?? 5}
         />
       </div>
     </div>

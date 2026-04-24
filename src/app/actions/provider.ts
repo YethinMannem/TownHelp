@@ -34,23 +34,19 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
   const displayName = formData.get('displayName') as string
   const baseRate = parseFloat(formData.get('baseRate') as string)
   const bio = formData.get('bio') as string
-  const areaName = formData.get('areaName') as string
-  const city = formData.get('city') as string
-  const state = formData.get('state') as string
+  const lat = parseFloat(formData.get('lat') as string)
+  const lng = parseFloat(formData.get('lng') as string)
+  const locationLabel = ((formData.get('locationLabel') as string) ?? '').trim() || 'Hyderabad'
+  const radiusKm = parseInt(formData.get('radiusKm') as string, 10) || 5
 
   if (!displayName?.trim() || isNaN(baseRate) || baseRate <= 0) {
     throw new Error('Display name and a valid base rate are required.')
   }
 
-  if (!areaName?.trim()) {
-    throw new Error('Service area is required so customers can find you.')
+  if (isNaN(lat) || isNaN(lng)) {
+    throw new Error('Please share your location so customers can find you.')
   }
 
-  if (!city?.trim() || !state?.trim()) {
-    throw new Error('City and state are required so customers see your correct service location.')
-  }
-
-  // Transactional: profile + service area succeed or fail together
   await prisma.$transaction(async (tx) => {
     const profile = await tx.providerProfile.create({
       data: {
@@ -64,28 +60,35 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
         ratingCount: 0,
         ratingSum: 0,
         completedBookings: 0,
+        latitude: lat,
+        longitude: lng,
+        maxTravelRadiusKm: radiusKm,
       },
       select: { id: true },
     })
 
-    await tx.serviceArea.create({
-      data: {
-        providerId: profile.id,
-        areaName: areaName.trim(),
-        city: city.trim(),
-        state: state.trim(),
-        isPrimary: true,
-      },
+    await tx.serviceArea.createMany({
+      data: [
+        {
+          providerId: profile.id,
+          areaName: locationLabel,
+          city: 'Hyderabad',
+          state: 'Telangana',
+          latitude: lat,
+          longitude: lng,
+          radiusKm: radiusKm,
+          isPrimary: true,
+        },
+      ],
     })
 
     await tx.user.update({
       where: { id: authUser.id },
       data: {
         metadata: {
-          locationLabel: `${areaName.trim()}, ${city.trim()}`,
-          areaName: areaName.trim(),
-          city: city.trim(),
-          state: state.trim(),
+          locationLabel: locationLabel,
+          city: 'Hyderabad',
+          state: 'Telangana',
         },
       },
     })
@@ -150,23 +153,51 @@ export async function updateProviderProfile(
     const baseRate = parseFloat(formData.get('baseRate') as string)
     const bio = formData.get('bio') as string
     const isAvailable = formData.get('isAvailable') === 'true'
+    const rawLat = formData.get('lat') as string
+    const rawLng = formData.get('lng') as string
+    const locationLabel = ((formData.get('locationLabel') as string) ?? '').trim() || 'Hyderabad'
+    const radiusKm = parseInt(formData.get('radiusKm') as string, 10) || 5
+    const lat = rawLat ? parseFloat(rawLat) : null
+    const lng = rawLng ? parseFloat(rawLng) : null
 
     if (!displayName?.trim() || isNaN(baseRate) || baseRate <= 0) {
       return { success: false, error: 'Display name and a valid base rate are required.' }
     }
 
-    await prisma.providerProfile.update({
-      where: { id: profile.id },
-      data: {
-        displayName: displayName.trim(),
-        baseRate,
-        bio: bio?.trim() || null,
-        isAvailable,
-      },
+    const hasLocation = lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)
+
+    await prisma.$transaction(async (tx) => {
+      await tx.providerProfile.update({
+        where: { id: profile.id },
+        data: {
+          displayName: displayName.trim(),
+          baseRate,
+          bio: bio?.trim() || null,
+          isAvailable,
+          ...(hasLocation && { latitude: lat, longitude: lng, maxTravelRadiusKm: radiusKm }),
+        },
+      })
+
+      if (hasLocation) {
+        await tx.serviceArea.deleteMany({ where: { providerId: profile.id } })
+        await tx.serviceArea.createMany({
+          data: [{
+            providerId: profile.id,
+            areaName: locationLabel,
+            city: 'Hyderabad',
+            state: 'Telangana',
+            latitude: lat!,
+            longitude: lng!,
+            radiusKm,
+            isPrimary: true,
+          }],
+        })
+      }
     })
 
     revalidatePath('/provider/dashboard')
     revalidatePath('/provider/edit')
+    revalidatePath('/browse')
     return { success: true }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to update profile.'
@@ -237,35 +268,18 @@ export async function addServiceArea(formData: FormData): Promise<void> {
   const authUser = await requireAuthUser()
   const profile = await requireProviderProfile(authUser.id)
 
-  const areaName = formData.get('areaName') as string
-  const city = formData.get('city') as string
-  const state = formData.get('state') as string
-  const pincode = formData.get('pincode') as string
+  const areaName = (formData.get('areaName') as string)?.trim()
 
-  if (!areaName?.trim()) {
+  if (!areaName) {
     throw new Error('Area name is required.')
-  }
-
-  const fallbackArea = await prisma.serviceArea.findFirst({
-    where: { providerId: profile.id },
-    select: { city: true, state: true },
-    orderBy: { isPrimary: 'desc' },
-  })
-
-  const resolvedCity = city?.trim() || fallbackArea?.city
-  const resolvedState = state?.trim() || fallbackArea?.state
-
-  if (!resolvedCity || !resolvedState) {
-    throw new Error('City and state are required for each service area.')
   }
 
   await prisma.serviceArea.create({
     data: {
       providerId: profile.id,
-      areaName: areaName.trim(),
-      city: resolvedCity,
-      state: resolvedState,
-      pincode: pincode?.trim() || null,
+      areaName,
+      city: 'Hyderabad',
+      state: 'Telangana',
       isPrimary: false,
     },
   })
@@ -306,12 +320,9 @@ export interface ProviderDetail {
   ratingCount: number
   completedBookings: number
   isVerified: boolean
+  isBackgroundChecked: boolean
   isAvailable: boolean
   whatsappOptIn: boolean
-  user: {
-    whatsappNumber: string | null
-    phone: string | null
-  }
   services: ProviderServiceItem[]
   areas: {
     areaName: string
@@ -319,6 +330,11 @@ export interface ProviderDetail {
     pincode: string | null
     isPrimary: boolean
   }[]
+}
+
+export interface ProviderContact {
+  phone: string | null
+  whatsappNumber: string | null
 }
 
 export async function getProviderById(id: string): Promise<ProviderDetail | null> {
@@ -336,6 +352,7 @@ export async function getProviderById(id: string): Promise<ProviderDetail | null
       ratingCount: true,
       completedBookings: true,
       isVerified: true,
+      isBackgroundChecked: true,
       isAvailable: true,
       services: {
         where: { isActive: true },
@@ -355,12 +372,6 @@ export async function getProviderById(id: string): Promise<ProviderDetail | null
         },
       },
       whatsappOptIn: true,
-      user: {
-        select: {
-          whatsappNumber: true,
-          phone: true,
-        },
-      },
       serviceAreas: {
         select: {
           areaName: true,
@@ -385,12 +396,9 @@ export async function getProviderById(id: string): Promise<ProviderDetail | null
     ratingCount: profile.ratingCount,
     completedBookings: profile.completedBookings,
     isVerified: profile.isVerified,
+    isBackgroundChecked: profile.isBackgroundChecked,
     isAvailable: profile.isAvailable,
     whatsappOptIn: profile.whatsappOptIn,
-    user: {
-      whatsappNumber: profile.user.whatsappNumber,
-      phone: profile.user.phone,
-    },
     services: profile.services.map((s) => ({
       id: s.id,
       customRate: s.customRate ? Number(s.customRate) : null,
@@ -399,6 +407,38 @@ export async function getProviderById(id: string): Promise<ProviderDetail | null
       category: s.category,
     })),
     areas: profile.serviceAreas,
+  }
+}
+
+// Contact info is gated: only unlock for confirmed/active bookings between viewer and provider.
+export async function getProviderContact(providerId: string): Promise<ProviderContact | null> {
+  const authUser = await requireAuthUser()
+
+  const profile = await prisma.providerProfile.findUnique({
+    where: { id: providerId, deletedAt: null },
+    select: { userId: true },
+  })
+  if (!profile) return null
+
+  const activeBooking = await prisma.booking.findFirst({
+    where: {
+      requesterId: authUser.id,
+      providerId: providerId,
+      status: { in: ['CONFIRMED', 'IN_PROGRESS'] },
+    },
+    select: { id: true },
+  })
+
+  if (!activeBooking) return null
+
+  const user = await prisma.user.findUnique({
+    where: { id: profile.userId },
+    select: { phone: true, whatsappNumber: true },
+  })
+
+  return {
+    phone: user?.phone ?? null,
+    whatsappNumber: user?.whatsappNumber ?? null,
   }
 }
 

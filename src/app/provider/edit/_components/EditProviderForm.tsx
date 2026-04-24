@@ -6,12 +6,17 @@ import { updateProviderProfile } from '@/app/actions/provider'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { User, FileText, IndianRupee, CheckCircle } from 'lucide-react'
+import LocationCapture from '@/components/ui/LocationCapture'
 
 interface EditProviderFormProps {
   displayName: string
   bio: string | null
   baseRate: number
   isAvailable: boolean
+  currentLat: number | null
+  currentLng: number | null
+  currentLocationLabel: string
+  currentRadius: number
 }
 
 export default function EditProviderForm({
@@ -19,6 +24,10 @@ export default function EditProviderForm({
   bio,
   baseRate,
   isAvailable: initialIsAvailable,
+  currentLat,
+  currentLng,
+  currentLocationLabel,
+  currentRadius,
 }: EditProviderFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -30,7 +39,6 @@ export default function EditProviderForm({
     e.preventDefault()
     setError(null)
     const formData = new FormData(e.currentTarget)
-    // Sync the controlled toggle state into FormData
     formData.set('isAvailable', available ? 'true' : 'false')
     startTransition(async () => {
       const result = await updateProviderProfile(formData)
@@ -121,6 +129,14 @@ export default function EditProviderForm({
         </div>
       </div>
 
+      {/* Location */}
+      <LocationCapture
+        initialLat={currentLat}
+        initialLng={currentLng}
+        initialLabel={currentLocationLabel}
+        initialRadius={currentRadius}
+      />
+
       {/* Availability toggle */}
       <div className="flex items-center justify-between gap-3 py-1">
         <div>
@@ -147,18 +163,15 @@ export default function EditProviderForm({
           />
           <span className="sr-only">{available ? 'Available' : 'Unavailable'}</span>
         </button>
-        {/* Hidden input so FormData always carries isAvailable */}
         <input type="hidden" name="isAvailable" value={available ? 'true' : 'false'} />
       </div>
 
-      {/* Inline error */}
       {error && (
         <p role="alert" className="text-xs text-error font-body">
           {error}
         </p>
       )}
 
-      {/* Actions */}
       <div className="flex items-center gap-3 pt-1">
         <Button type="submit" size="sm" loading={isPending}>
           <CheckCircle className="w-4 h-4" />

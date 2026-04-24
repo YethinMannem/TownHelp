@@ -6,25 +6,50 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { UserCircle } from 'lucide-react'
+import LocationCapture from '@/components/ui/LocationCapture'
+
+type FieldErrors = {
+  displayName?: string
+  baseRate?: string
+  location?: string
+  general?: string
+}
+
+function validate(formData: FormData): FieldErrors {
+  const errors: FieldErrors = {}
+  const displayName = (formData.get('displayName') as string)?.trim()
+  const baseRate = parseFloat(formData.get('baseRate') as string)
+  const lat = formData.get('lat') as string
+
+  if (!displayName) errors.displayName = 'Display name is required'
+  if (isNaN(baseRate) || baseRate < 50) errors.baseRate = 'Rate must be at least ₹50'
+  if (baseRate > 10000) errors.baseRate = 'Rate cannot exceed ₹10,000'
+  if (!lat) errors.location = 'Please share your location so customers can find you'
+  return errors
+}
 
 export default function RegisterProviderPage() {
-  const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(formData: FormData) {
+    const errors = validate(formData)
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      return
+    }
+    setFieldErrors({})
     setLoading(true)
-    setError('')
     try {
       await createProviderProfile(formData)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setFieldErrors({ general: err instanceof Error ? err.message : 'Something went wrong' })
       setLoading(false)
     }
   }
 
   return (
     <div className="min-h-screen bg-surface pb-20 lg:pb-0 lg:pl-60">
-      {/* Frosted-glass fixed header */}
       <div className="fixed top-0 left-0 right-0 lg:left-60 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 lg:px-6 h-14 flex items-center gap-3">
         <Link href="/" className="text-sm font-body text-primary hover:underline">
           ← Home
@@ -38,58 +63,45 @@ export default function RegisterProviderPage() {
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-14 mt-6">
-        {error && (
+        {fieldErrors.general && (
           <div className="mb-5 p-4 bg-error-container rounded-2xl text-on-error-container font-body text-sm">
-            {error}
+            {fieldErrors.general}
           </div>
         )}
 
         <form action={handleSubmit} className="space-y-4">
-          <Input
-            id="displayName"
-            name="displayName"
-            label="Display Name *"
-            required
-            placeholder="e.g. Ravi's Electrical Services"
-            hint="This is what customers will see"
-          />
-
-          <Input
-            id="baseRate"
-            name="baseRate"
-            type="number"
-            label="Base Rate (₹/hour) *"
-            required
-            min="50"
-            max="10000"
-            placeholder="e.g. 300"
-            hint="You can set different rates per service later"
-          />
-
-          <Input
-            id="areaName"
-            name="areaName"
-            label="Primary Service Area"
-            placeholder="e.g. Madhapur, Gachibowli"
-          />
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
             <Input
-              id="city"
-              name="city"
-              label="City *"
+              id="displayName"
+              name="displayName"
+              label="Display Name *"
               required
-              placeholder="e.g. Hyderabad"
+              placeholder="e.g. Ravi's Electrical Services"
+              hint="This is what customers will see"
             />
-
-            <Input
-              id="state"
-              name="state"
-              label="State *"
-              required
-              placeholder="e.g. Telangana"
-            />
+            {fieldErrors.displayName && (
+              <p className="text-xs text-error font-body -mt-2">{fieldErrors.displayName}</p>
+            )}
           </div>
+
+          <div className="flex flex-col gap-1">
+            <Input
+              id="baseRate"
+              name="baseRate"
+              type="number"
+              label="Base Rate (₹/hour) *"
+              required
+              min="50"
+              max="10000"
+              placeholder="e.g. 300"
+              hint="₹50 – ₹10,000 per hour"
+            />
+            {fieldErrors.baseRate && (
+              <p className="text-xs text-error font-body -mt-2">{fieldErrors.baseRate}</p>
+            )}
+          </div>
+
+          <LocationCapture required error={fieldErrors.location} />
 
           <div className="flex flex-col gap-1.5">
             <label
