@@ -1,5 +1,5 @@
 import { requireAuthUser } from '@/lib/auth'
-import { getProviders, getServiceCategories, getServiceAreas } from '@/app/actions/booking'
+import { getProviders, getServiceCategories } from '@/app/actions/booking'
 import { ArrowLeft, SearchX } from 'lucide-react'
 import Link from 'next/link'
 import { ProviderCard } from '@/components/ui/ProviderCard'
@@ -12,32 +12,47 @@ const VALID_SORTS = new Set<string>(['rating', 'price_low', 'price_high', 'exper
 const PAGE_SIZE = 20
 
 interface BrowsePageProps {
-  searchParams: Promise<{ category?: string; search?: string; area?: string; sort?: string; page?: string }>
+  searchParams: Promise<{ category?: string; search?: string; area?: string; sort?: string; page?: string; availableToday?: string; lat?: string; lng?: string; nearMe?: string }>
 }
 
 export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   await requireAuthUser('/welcome')
 
-  const { category, search, area, sort: rawSort, page: rawPage } = await searchParams
+  const { category, search, area, sort: rawSort, page: rawPage, availableToday: rawAvailableToday, lat: rawLat, lng: rawLng, nearMe: rawNearMe } = await searchParams
 
   const sort = (VALID_SORTS.has(rawSort ?? '') ? rawSort : 'rating') as ProviderSortOption
   const page = Math.max(parseInt(rawPage ?? '1', 10) || 1, 1)
+  const availableToday = rawAvailableToday === '1'
+  const nearMe = rawNearMe === '1'
+  const lat = rawLat ? parseFloat(rawLat) : undefined
+  const lng = rawLng ? parseFloat(rawLng) : undefined
 
-  const [{ providers, totalCount }, categories, areas] = await Promise.all([
+  const [{ providers, totalCount }, categories] = await Promise.all([
     getProviders({
       categorySlug: category,
       search: search?.trim(),
-      area: area?.trim(),
+      area: nearMe ? undefined : area?.trim(),
+      lat: nearMe ? lat : undefined,
+      lng: nearMe ? lng : undefined,
       sort,
       page,
       limit: PAGE_SIZE,
+      availableToday,
     }),
     getServiceCategories(),
-    getServiceAreas(),
   ])
 
   const totalPages = Math.max(Math.ceil(totalCount / PAGE_SIZE), 1)
-  const filterParams = { category, search, area, sort: sort !== 'rating' ? sort : undefined }
+  const filterParams = {
+    category,
+    search,
+    area: nearMe ? undefined : area,
+    sort: sort !== 'rating' ? sort : undefined,
+    availableToday: availableToday ? '1' : undefined,
+    lat: nearMe ? rawLat : undefined,
+    lng: nearMe ? rawLng : undefined,
+    nearMe: nearMe ? '1' : undefined,
+  }
 
   const categoryLabel = category
     ? categories.find((c) => c.slug === category)?.name ??
@@ -69,8 +84,8 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
           <SearchFilters
             categorySlug={category}
             currentSearch={search}
-            currentArea={area}
-            areas={areas}
+            currentAvailableToday={availableToday}
+            currentNearMe={nearMe}
           />
 
           {/* Sort */}
@@ -95,14 +110,19 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
         </div>
 
         {/* Results summary */}
-        {(search || area || totalCount > 0) && (
+        {(search || area || availableToday || nearMe || totalCount > 0) && (
           <p className="text-sm text-on-surface-variant font-body mb-4">
             {totalCount} result{totalCount !== 1 ? 's' : ''}
             {search && (
               <> for &ldquo;<span className="font-medium text-on-surface">{search}</span>&rdquo;</>
             )}
-            {area && (
+            {nearMe ? (
+              <> <span className="font-medium text-on-surface">near you</span></>
+            ) : area ? (
               <> in <span className="font-medium text-on-surface">{area}</span></>
+            ) : null}
+            {availableToday && (
+              <> &middot; available today</>
             )}
           </p>
         )}
@@ -116,10 +136,20 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
               No providers found
             </h2>
             <p className="text-sm text-on-surface-variant font-body max-w-xs">
-              {search || area
-                ? 'Try adjusting your search or filters.'
-                : `Be the first to offer ${categoryLabel.toLowerCase()} services in your area.`}
+              {availableToday
+                ? 'No providers available today in this area. Try removing the "Available Today" filter.'
+                : search || area
+                  ? 'Try adjusting your filters or searching in a nearby area.'
+                  : 'Be the first to offer services in this area.'}
             </p>
+            {!search && !area && !category && (
+              <a
+                href="mailto:help@townhelp.in?subject=Notify me when providers are available"
+                className="mt-2 text-sm font-medium text-primary font-body hover:underline"
+              >
+                Notify me when available &rarr;
+              </a>
+            )}
           </div>
         ) : (
           <>
@@ -134,6 +164,9 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
                   reviewCount={provider.ratingCount ?? 0}
                   pricePerHour={Number(provider.services[0]?.customRate ?? provider.baseRate ?? 0)}
                   isVerified={provider.isVerified}
+                  completedBookings={provider.completedBookings}
+                  rateType={provider.services[0]?.rateType ?? null}
+                  distanceKm={provider.distanceKm}
                   className="w-full"
                 />
               ))}

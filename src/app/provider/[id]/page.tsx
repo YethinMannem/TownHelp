@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Star, MapPin, BadgeCheck, Briefcase, Clock, MessageCircle } from 'lucide-react'
+import { ArrowLeft, Star, MapPin, BadgeCheck, Briefcase, Clock } from 'lucide-react'
 import { requireAuthUser } from '@/lib/auth'
 import { getProviderById, getWeeklyAvailability } from '@/app/actions/provider'
 import { isFavorited } from '@/app/actions/favorite'
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
 import FavoriteButton from './FavoriteButton'
 import BookButton from '@/app/browse/BookButton'
+import VerificationInfo from './VerificationInfo'
 import type { Metadata } from 'next'
 import type { ReviewItem } from '@/types'
 
@@ -83,18 +84,11 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
   ])
 
   const name = provider.displayName
+  const firstName = name.split(' ')[0]
   const rating = provider.ratingAvg
   const reviewCount = provider.ratingCount
   const isOwnProfile = provider.userId === authUser.id
   const canBook = !isOwnProfile && provider.isAvailable && provider.services.length > 0
-
-  const rawPhone = provider.user.whatsappNumber ?? provider.user.phone
-  const waPhone = rawPhone?.replace(/\D/g, '') ?? null
-  const waMessage = `Hi ${name}, I found your profile on TownHelp. I'm interested in your ${provider.services[0]?.category.name ?? 'service'} service.`
-  const waUrl =
-    !isOwnProfile && provider.whatsappOptIn && waPhone
-      ? `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}`
-      : null
 
   return (
     <div className="min-h-screen bg-surface pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-8 lg:pl-60">
@@ -131,13 +125,16 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
               <h1 className="font-headline text-xl font-extrabold text-on-surface">
                 {name}
               </h1>
-              {provider.isVerified && (
-                <BadgeCheck className="w-5 h-5 text-primary" />
-              )}
               {!provider.isAvailable && (
                 <Badge variant="pending">Unavailable</Badge>
               )}
             </div>
+
+            {/* Verification badges — clickable with expansion */}
+            <VerificationInfo
+              isVerified={provider.isVerified}
+              isBackgroundChecked={provider.isBackgroundChecked}
+            />
 
             {provider.services.length > 0 && (
               <p className="mt-1 text-sm text-on-surface-variant font-body">
@@ -150,7 +147,7 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
               <div className="flex items-center gap-1">
                 <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
                 <span className="text-sm font-semibold text-on-surface font-body">
-                  {rating.toFixed(1)}
+                  {(Number(rating ?? 0)).toFixed(1)}
                 </span>
                 <span className="text-sm text-on-surface-variant font-body">
                   ({reviewCount})
@@ -158,22 +155,24 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
               </div>
               <div className="flex items-center gap-1 text-sm text-on-surface-variant font-body">
                 <Briefcase className="w-3.5 h-3.5" />
-                <span>{provider.completedBookings} jobs</span>
+                {provider.completedBookings > 0 ? (
+                  <span>{provider.completedBookings} jobs done</span>
+                ) : (
+                  <span>New provider</span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Bio */}
-          {provider.bio && (
-            <div>
-              <h2 className="font-headline text-sm font-bold text-on-surface mb-2">
-                About
-              </h2>
-              <p className="text-sm text-on-surface-variant font-body leading-relaxed">
-                {provider.bio}
-              </p>
-            </div>
-          )}
+          {/* Bio — always shown */}
+          <div>
+            <h2 className="font-headline text-sm font-bold text-on-surface mb-2">
+              About
+            </h2>
+            <p className="text-sm text-on-surface-variant font-body leading-relaxed italic">
+              {provider.bio ?? `${firstName} hasn't added a bio yet. Feel free to message them after booking.`}
+            </p>
+          </div>
 
           {/* Services */}
           {provider.services.length > 0 && (
@@ -218,9 +217,9 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
                 Service areas
               </h2>
               <div className="flex flex-wrap gap-2">
-                {provider.areas.map((area, index) => (
+                {provider.areas.map((area) => (
                   <div
-                    key={index}
+                    key={area.areaName}
                     className={cn(
                       'flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium font-body',
                       area.isPrimary
@@ -230,9 +229,6 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
                   >
                     <MapPin className="w-3 h-3 shrink-0" />
                     <span>{area.areaName}</span>
-                    {area.isPrimary && (
-                      <span className="opacity-70">(primary)</span>
-                    )}
                   </div>
                 ))}
               </div>
@@ -276,10 +272,17 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
             </h2>
 
             {reviews.length === 0 ? (
-              <div className="bg-surface-container rounded-xl p-5 text-center">
-                <p className="text-sm text-on-surface-variant font-body">
-                  No reviews yet.
+              <div className="bg-surface-container rounded-xl p-4">
+                <p className="text-sm font-semibold text-on-surface font-body">New on TownHelp</p>
+                <p className="text-xs text-on-surface-variant font-body mt-1 leading-relaxed">
+                  {firstName} recently joined TownHelp and hasn&apos;t received reviews yet.
+                  All new providers are ID-verified before their first booking.
                 </p>
+                {provider.isVerified && (
+                  <p className="text-xs text-primary font-semibold font-body mt-2">
+                    ID Verified ✓ — identity confirmed by TownHelp
+                  </p>
+                )}
               </div>
             ) : (
               <div className="flex flex-col gap-2.5">
@@ -301,6 +304,10 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
                             year: 'numeric',
                           })}
                         </p>
+                        <span className="inline-flex items-center gap-1 text-[10px] text-primary/80 font-body font-medium mt-0.5">
+                          <BadgeCheck className="w-3 h-3" />
+                          Verified booking
+                        </span>
                       </div>
                       <div className="flex items-center gap-0.5 shrink-0">
                         {Array.from({ length: 5 }).map((_, i) => (
@@ -333,7 +340,13 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
       <div className="fixed bottom-16 lg:bottom-0 left-0 lg:left-60 right-0 z-30 bg-surface-container-lowest/95 backdrop-blur-md border-t border-outline-variant/20">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 px-4 lg:px-8 py-3 max-w-4xl mx-auto">
           <FavoriteButton providerId={provider.id} initialFavorited={favorited} />
-          <div className="flex-1 flex items-center gap-2">
+          <div className="flex-1 flex flex-col gap-1.5">
+            {canBook && (
+              <p className="text-[10px] text-on-surface-variant/60 font-body text-center">
+                Chat is unlocked after booking. Free cancellation up to 2 hrs before.
+              </p>
+            )}
+            <div className="flex items-center gap-2">
             {canBook ? (
               <BookButton
                 providerId={provider.id}
@@ -352,18 +365,7 @@ export default async function ProviderPage({ params }: ProviderPageProps) {
                   : 'No active services available to book'}
               </div>
             )}
-            {waUrl && (
-              <a
-                href={waUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 flex items-center gap-2 px-4 py-3 rounded-xl bg-[#25d366] text-white text-sm font-semibold font-body hover:opacity-90 active:opacity-80 transition-opacity"
-                aria-label="Message on WhatsApp"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">WhatsApp</span>
-              </a>
-            )}
+            </div>
           </div>
         </div>
       </div>

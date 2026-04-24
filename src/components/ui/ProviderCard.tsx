@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { Star, BadgeCheck } from 'lucide-react'
+import { Star, BadgeCheck, Briefcase, MapPin } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { formatDistance } from '@/lib/geo'
 
 export interface ProviderCardProps {
   providerId: string
@@ -10,6 +11,9 @@ export interface ProviderCardProps {
   reviewCount: number
   pricePerHour: number
   isVerified?: boolean
+  completedBookings?: number
+  rateType?: string | null
+  distanceKm?: number
   className?: string
 }
 
@@ -33,6 +37,16 @@ function getInitials(name: string): string {
     .join('')
 }
 
+function rateLabel(rateType?: string | null): string {
+  switch (rateType) {
+    case 'HOURLY': return '/hr'
+    case 'PER_VISIT': return '/visit'
+    case 'PER_KG': return '/kg'
+    case 'FIXED': return ' flat'
+    default: return '/hr'
+  }
+}
+
 export function ProviderCard({
   providerId,
   name,
@@ -41,8 +55,13 @@ export function ProviderCard({
   reviewCount,
   pricePerHour,
   isVerified = false,
+  completedBookings,
+  rateType,
+  distanceKm,
   className,
 }: ProviderCardProps) {
+  const isNew = reviewCount < 3 && (completedBookings ?? 0) < 5
+
   return (
     <Link
       href={`/provider/${providerId}`}
@@ -70,6 +89,11 @@ export function ProviderCard({
             <span>{rating.toFixed(1)}</span>
             <span className="text-on-surface-variant">({reviewCount})</span>
           </div>
+          {isNew && (
+            <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-tertiary-fixed text-on-tertiary-fixed">
+              New
+            </div>
+          )}
           {isVerified && (
             <div className="absolute top-2 right-2">
               <BadgeCheck className="w-5 h-5 text-primary drop-shadow-sm" />
@@ -81,9 +105,21 @@ export function ProviderCard({
         <div className="p-3 space-y-0.5 min-w-0">
           <p className="font-semibold text-sm text-on-surface font-body truncate">{name}</p>
           <p className="text-[11px] text-on-surface-variant font-body line-clamp-2 break-words">{role}</p>
+          {(completedBookings ?? 0) > 0 && (
+            <p className="text-[11px] text-on-surface-variant font-body flex items-center gap-0.5">
+              <Briefcase className="w-3 h-3" />
+              {completedBookings} jobs done
+            </p>
+          )}
+          {distanceKm !== undefined && (
+            <p className="text-[11px] text-on-surface-variant font-body flex items-center gap-0.5">
+              <MapPin className="w-3 h-3" />
+              {formatDistance(distanceKm)}
+            </p>
+          )}
           <p className="text-sm font-bold text-primary font-body pt-1">
             ₹{pricePerHour}
-            <span className="text-[11px] text-on-surface-variant font-normal">/hr</span>
+            <span className="text-[11px] text-on-surface-variant font-normal">{rateLabel(rateType)}</span>
           </p>
         </div>
       </div>

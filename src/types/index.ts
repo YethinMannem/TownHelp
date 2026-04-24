@@ -59,6 +59,7 @@ export interface ProviderListItem {
   }
   services: ProviderServiceItem[]
   areas: ServiceAreaItem[]
+  distanceKm?: number
 }
 
 export type ProviderSortOption = 'rating' | 'price_low' | 'price_high' | 'experience'
@@ -81,6 +82,7 @@ export interface ProviderDashboard {
   whatsappNumber: string | null
   services: ProviderServiceItem[]
   areas: ServiceAreaItem[]
+  activeAvailabilityCount: number
 }
 
 // --- Bookings ---
@@ -111,10 +113,12 @@ export interface BookingAsRequester {
   serviceAddress: string | null
   requesterNotes: string | null
   createdAt: Date
+  scheduledAt: Date | null
   confirmedAt: Date | null
   completedAt: Date | null
   cancelledAt: Date | null
   provider: {
+    id: string
     displayName: string
     userId: string
   }
@@ -137,6 +141,7 @@ export interface BookingAsProvider {
   serviceAddress: string | null
   requesterNotes: string | null
   createdAt: Date
+  scheduledAt: Date | null
   confirmedAt: Date | null
   completedAt: Date | null
   cancelledAt: Date | null
