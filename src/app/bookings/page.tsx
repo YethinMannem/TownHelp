@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import type { BadgeVariant } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { requireAuthUser } from '@/lib/auth'
-import { CalendarDays, MessageCircle, MapPin } from 'lucide-react'
+import { CalendarDays, MessageCircle, MapPin, AlertCircle } from 'lucide-react'
 import ConfirmReceiptButton from './_components/ConfirmReceiptButton'
 
 const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
@@ -19,6 +19,24 @@ const STATUS_BADGE_VARIANT: Record<string, BadgeVariant> = {
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
   DISPUTED: 'pending',
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Pending',
+  CONFIRMED: 'Confirmed',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  DISPUTED: 'Disputed',
+}
+
+const STATUS_HINT: Record<string, { requester: string; provider: string }> = {
+  PENDING:     { requester: 'Waiting for provider to accept', provider: 'New request — accept or decline' },
+  CONFIRMED:   { requester: 'Provider accepted — share your OTP when they arrive', provider: 'Accepted — enter customer OTP to start' },
+  IN_PROGRESS: { requester: 'Job is underway', provider: 'Job is underway — mark done when finished' },
+  COMPLETED:   { requester: 'Job done', provider: 'Job done' },
+  CANCELLED:   { requester: 'Booking was cancelled', provider: 'Booking was cancelled' },
+  DISPUTED:    { requester: 'Under review by TownHelp', provider: 'Under review by TownHelp' },
 }
 
 function BookingCard({
@@ -53,23 +71,41 @@ function BookingCard({
                 {booking.category?.name || 'Service'}
               </p>
               <p className="text-sm text-on-surface-variant font-body mt-0.5">
-                {variant === 'requester' ? 'Provider' : 'From'}: {otherParty}
+                {variant === 'requester' ? 'with' : 'from'} {otherParty}
               </p>
             </div>
-            <Badge variant={STATUS_BADGE_VARIANT[booking.status] ?? 'info'}>
-              {booking.status.replace('_', ' ')}
-            </Badge>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <Badge variant={STATUS_BADGE_VARIANT[booking.status] ?? 'info'}>
+                {STATUS_LABEL[booking.status] ?? booking.status}
+              </Badge>
+              {/* Payment due indicator */}
+              {variant === 'requester' &&
+                booking.status === 'COMPLETED' &&
+                (booking as BookingAsRequester).paymentStatus === 'NONE' && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold font-body text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                  <AlertCircle className="w-3 h-3" />
+                  Payment due
+                </span>
+              )}
+            </div>
           </div>
+          {/* Status hint */}
+          {STATUS_HINT[booking.status] && (
+            <p className="mt-1.5 text-xs text-on-surface-variant font-body">
+              {STATUS_HINT[booking.status][variant]}
+            </p>
+          )}
         </Link>
 
         {/* Meta row */}
         <div className="mt-2.5 flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1 text-xs text-on-surface-variant font-body bg-surface-container px-2 py-0.5 rounded-md">
             <CalendarDays className="w-3 h-3" />
-            {new Date(booking.createdAt).toLocaleDateString('en-IN', {
-              day: 'numeric',
-              month: 'short',
-            })}
+            {booking.scheduledAt
+              ? new Date(booking.scheduledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }) +
+                ' ' + new Date(booking.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+              : new Date(booking.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })
+            }
           </span>
           <span className="text-xs text-on-surface-variant font-body bg-surface-container px-2 py-0.5 rounded-md">
             #{booking.bookingNumber}
@@ -142,6 +178,19 @@ function BookingCard({
             hasReview={(booking as BookingAsRequester).hasReview}
             isCompleted={booking.status === 'COMPLETED'}
           />
+        )}
+
+        {/* Book Again (requester only, completed bookings) */}
+        {variant === 'requester' && booking.status === 'COMPLETED' &&
+          (booking as BookingAsRequester).provider?.id && (
+          <div className="mt-3 pt-3 border-t border-outline-variant/20">
+            <Link
+              href={`/provider/${(booking as BookingAsRequester).provider.id}`}
+              className="inline-flex items-center gap-1.5 text-sm font-body font-medium text-primary hover:underline"
+            >
+              Book again →
+            </Link>
+          </div>
         )}
 
         {/* Message link */}
@@ -219,8 +268,8 @@ export default async function BookingsPage() {
 
   const providerPendingCount = provider.active.filter(b => b.status === 'PENDING').length
 
-  // Sort provider active bookings: PENDING first, then the rest
-  provider.active.sort((a, b) => {
+  // Sort provider active bookings: PENDING first, then the rest (copy to avoid mutating state)
+  const sortedProviderActive = [...provider.active].sort((a, b) => {
     if (a.status === 'PENDING' && b.status !== 'PENDING') return -1
     if (a.status !== 'PENDING' && b.status === 'PENDING') return 1
     return 0
@@ -255,12 +304,12 @@ export default async function BookingsPage() {
               )
             }
             providerContent={
-              provider.active.length === 0 ? (
+              sortedProviderActive.length === 0 ? (
                 <p className="text-on-surface-variant font-body text-sm text-center py-8">
                   No active bookings received.
                 </p>
               ) : (
-                <BookingGrid bookings={provider.active} variant="provider" />
+                <BookingGrid bookings={sortedProviderActive} variant="provider" />
               )
             }
             requesterPastContent={

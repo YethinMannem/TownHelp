@@ -10,6 +10,7 @@ import { isValidUUID } from '@/lib/validation'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getProviderDashboardStats as fetchDashboardStats } from '@/services/dashboard.service'
 import { sendPushToUser } from '@/lib/push'
+import { haversineKm } from '@/lib/geo'
 import type {
   ServiceCategoryItem,
   ProviderListItem,
@@ -20,6 +21,8 @@ import type {
   BookingTransitionResult,
   ProviderDashboardStats,
 } from '@/types'
+
+const IST_OFFSET_MS = 330 * 60 * 1000 // UTC+5:30
 
 // Public action — provider discovery data
 export async function getServiceCategories(): Promise<ServiceCategoryItem[]> {
@@ -36,41 +39,29 @@ export async function getServiceCategories(): Promise<ServiceCategoryItem[]> {
       orderBy: { sortOrder: 'asc' },
     })
 
-    return categories.map((c) => ({
-      ...c,
-      sortOrder: c.sortOrder,
-    }))
+    return categories
   } catch (error) {
     console.error('[getServiceCategories]:', error)
     return []
   }
 }
 
-// Public action — distinct areas with active providers
+// Kept for backward compat — callers can migrate away
 export async function getServiceAreas(): Promise<string[]> {
-  try {
-    const areas = await prisma.serviceArea.findMany({
-      where: {
-        provider: { isAvailable: true, deletedAt: null },
-      },
-      select: { areaName: true },
-      distinct: ['areaName'],
-      orderBy: { areaName: 'asc' },
-    })
-    return areas.map((a) => a.areaName)
-  } catch (error) {
-    console.error('[getServiceAreas]:', error)
-    return []
-  }
+  return []
 }
 
 interface GetProvidersFilters {
   categorySlug?: string
   search?: string
   area?: string
+  lat?: number
+  lng?: number
+  radiusKm?: number
   sort?: ProviderSortOption
   page?: number
   limit?: number
+  availableToday?: boolean
 }
 
 // Public action — provider discovery data
@@ -90,7 +81,12 @@ export async function getProviders(
       ? { categorySlug: categorySlugOrFilters }
       : (categorySlugOrFilters ?? {})
 
-  const { categorySlug, search, area, sort = 'rating' } = filters
+  const { categorySlug, search, area, lat, lng, radiusKm = 5, sort = 'rating', availableToday } = filters
+  const nearMe =
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    lat >= -90 && lat <= 90 &&
+    lng >= -180 && lng <= 180
 
   const pageSize = Math.min(filters.limit ?? 20, 50) // Max 50 per page
   const page = Math.max(filters.page ?? 1, 1)
@@ -118,58 +114,85 @@ export async function getProviders(
         some: { areaName: { contains: area, mode: 'insensitive' as const } },
       },
     }),
+    ...(availableToday && {
+      availability: {
+        some: {
+          // Convert to IST (UTC+5:30) before extracting day of week
+          dayOfWeek: new Date(Date.now() + IST_OFFSET_MS).getUTCDay(),
+          isActive: true,
+        },
+      },
+    }),
   }
 
   const orderBy = SORT_ORDER_MAP[sort] ?? SORT_ORDER_MAP.rating
 
+  const providerSelect = {
+    id: true,
+    displayName: true,
+    bio: true,
+    baseRate: true,
+    ratingAvg: true,
+    ratingCount: true,
+    completedBookings: true,
+    isVerified: true,
+    availableFrom: true,
+    availableTo: true,
+    latitude: true,
+    longitude: true,
+    maxTravelRadiusKm: true,
+    user: { select: { fullName: true } },
+    services: {
+      where: {
+        isActive: true,
+        ...(categorySlug && { category: { slug: categorySlug } }),
+      },
+      select: {
+        id: true,
+        customRate: true,
+        rateType: true,
+        description: true,
+        category: { select: { id: true, name: true, slug: true, iconName: true } },
+      },
+    },
+    serviceAreas: {
+      select: { areaName: true, city: true, latitude: true, longitude: true },
+    },
+  }
+
   try {
-    const [providers, totalCount] = await Promise.all([
-      prisma.providerProfile.findMany({
-        where,
-        select: {
-          id: true,
-          displayName: true,
-          bio: true,
-          baseRate: true,
-          ratingAvg: true,
-          ratingCount: true,
-          completedBookings: true,
-          isVerified: true,
-          availableFrom: true,
-          availableTo: true,
-          user: {
-            select: { fullName: true },
-          },
-          services: {
-            where: {
-              isActive: true,
-              ...(categorySlug && {
-                category: { slug: categorySlug },
-              }),
-            },
-            select: {
-              id: true,
-              customRate: true,
-              rateType: true,
-              description: true,
-              category: {
-                select: { id: true, name: true, slug: true, iconName: true },
-              },
-            },
-          },
-          serviceAreas: {
-            select: { areaName: true, city: true },
-          },
-        },
-        take: pageSize,
-        skip,
-        orderBy,
-      }),
-      prisma.providerProfile.count({ where }),
-    ])
+    let totalCount: number
+    let rawProviders: Awaited<ReturnType<typeof prisma.providerProfile.findMany<{ select: typeof providerSelect }>>>
+
+    if (nearMe) {
+      // Fetch all matching, filter by provider's travel radius from their home location
+      rawProviders = await prisma.providerProfile.findMany({ where, select: providerSelect, orderBy })
+
+      rawProviders = rawProviders.filter((p) =>
+        p.latitude !== null &&
+        p.longitude !== null &&
+        haversineKm(lat!, lng!, p.latitude, p.longitude) <= (p.maxTravelRadiusKm ?? 5)
+      )
+
+      rawProviders.sort((a, b) => {
+        const distA = haversineKm(lat!, lng!, a.latitude!, a.longitude!)
+        const distB = haversineKm(lat!, lng!, b.latitude!, b.longitude!)
+        return distA - distB
+      })
+
+      totalCount = rawProviders.length
+      rawProviders = rawProviders.slice(skip, skip + pageSize)
+    } else {
+      const [fetched, count] = await Promise.all([
+        prisma.providerProfile.findMany({ where, select: providerSelect, take: pageSize, skip, orderBy }),
+        prisma.providerProfile.count({ where }),
+      ])
+      rawProviders = fetched
+      totalCount = count
+    }
 
     return {
-      providers: providers.map((p) => ({
+      providers: rawProviders.map((p) => ({
         ...p,
         baseRate: Number(p.baseRate),
         ratingAvg: Number(p.ratingAvg),
@@ -178,6 +201,10 @@ export async function getProviders(
           customRate: s.customRate ? Number(s.customRate) : null,
         })),
         areas: p.serviceAreas,
+        distanceKm:
+          nearMe && p.latitude !== null && p.longitude !== null
+            ? haversineKm(lat!, lng!, p.latitude, p.longitude)
+            : undefined,
       })),
       totalCount,
     }
@@ -209,6 +236,12 @@ export async function createBooking(formData: FormData): Promise<void> {
 
   const serviceAddress = rawAddress.slice(0, 500)
   const notes = rawNotes.slice(0, 1000)
+  if (!isNaN(rawRate) && rawRate > 100_000) {
+    throw new Error('The quoted rate cannot exceed ₹1,00,000.')
+  }
+  if (!isNaN(rawRate) && rawRate > 0 && rawRate < 50) {
+    throw new Error('The quoted rate must be at least ₹50.')
+  }
   const quotedRate = isNaN(rawRate) || rawRate < 0 ? NaN : rawRate
 
   // Parse scheduled time if provided
@@ -216,8 +249,9 @@ export async function createBooking(formData: FormData): Promise<void> {
   let scheduledEnd: Date | null = null
 
   if (scheduledDate && scheduledStartTime && scheduledEndTime) {
-    scheduledStart = new Date(`${scheduledDate}T${scheduledStartTime}:00.000Z`)
-    scheduledEnd = new Date(`${scheduledDate}T${scheduledEndTime}:00.000Z`)
+    // Times are in IST (UTC+5:30). Subtract 5h30m to store as UTC in the database.
+    scheduledStart = new Date(new Date(`${scheduledDate}T${scheduledStartTime}:00.000Z`).getTime() - IST_OFFSET_MS)
+    scheduledEnd = new Date(new Date(`${scheduledDate}T${scheduledEndTime}:00.000Z`).getTime() - IST_OFFSET_MS)
 
     if (isNaN(scheduledStart.getTime()) || isNaN(scheduledEnd.getTime())) {
       throw new Error('Invalid date or time selected. Please try again.')
@@ -273,23 +307,6 @@ export async function createBooking(formData: FormData): Promise<void> {
     throw new Error('This provider does not offer the service you selected. They may have updated their services.')
   }
 
-  // Conflict check: ensure no overlapping booking exists for this provider + time
-  if (scheduledStart && scheduledEnd) {
-    const conflicting = await prisma.booking.findFirst({
-      where: {
-        providerId,
-        status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] },
-        scheduledStart: { lt: scheduledEnd },
-        scheduledEnd: { gt: scheduledStart },
-      },
-      select: { id: true },
-    })
-
-    if (conflicting) {
-      throw new Error('This time slot was just booked by someone else. Please pick a different slot.')
-    }
-  }
-
   // Retry on booking number collision (extremely unlikely but handled)
   const MAX_RETRIES = 3
   let createdBookingId: string | null = null
@@ -301,8 +318,24 @@ export async function createBooking(formData: FormData): Promise<void> {
     const bookingNumber = `TH-${dateStr}-${uniqueId}`
 
     try {
-      // Transactional: booking + audit log + conversation succeed or fail together
+      // Transactional: conflict check + booking + audit log + conversation succeed or fail together.
+      // Conflict check is inside the transaction so it cannot race with a concurrent booking creation.
       await prisma.$transaction(async (tx) => {
+        if (scheduledStart && scheduledEnd) {
+          const conflicting = await tx.booking.findFirst({
+            where: {
+              providerId,
+              status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] },
+              scheduledStart: { lt: scheduledEnd },
+              scheduledEnd: { gt: scheduledStart },
+            },
+            select: { id: true },
+          })
+          if (conflicting) {
+            throw new Error('This time slot was just booked by someone else. Please pick a different slot.')
+          }
+        }
+
         const booking = await tx.booking.create({
           data: {
             bookingNumber,
@@ -345,14 +378,14 @@ export async function createBooking(formData: FormData): Promise<void> {
       // Success — break out of retry loop
       break
     } catch (error: unknown) {
-      const isUniqueViolation =
-        error instanceof Error &&
-        'code' in error &&
-        (error as { code: string }).code === 'P2002'
+      const isPrismaError = error instanceof Error && 'code' in error
+      const isUniqueViolation = isPrismaError && (error as { code: string }).code === 'P2002'
 
       if (isUniqueViolation && attempt < MAX_RETRIES - 1) {
         continue // Retry with new booking number
       }
+      // Re-throw plain errors as-is — they carry user-facing messages (e.g. slot conflict)
+      if (!isPrismaError) throw error
       throw new Error('Failed to create booking. Please try again.')
     }
   }
@@ -391,7 +424,7 @@ export async function createBooking(formData: FormData): Promise<void> {
     console.error('[createBooking] notification failed:', notifError)
   }
 
-  redirect('/bookings')
+  redirect(`/bookings/${createdBookingId}?new=1`)
 }
 
 export async function getMyBookings(): Promise<MyBookings> {
@@ -407,6 +440,7 @@ export async function getMyBookings(): Promise<MyBookings> {
     serviceAddress: true,
     requesterNotes: true,
     createdAt: true,
+    scheduledStart: true,
     confirmedAt: true,
     completedAt: true,
     cancelledAt: true,
@@ -427,7 +461,7 @@ export async function getMyBookings(): Promise<MyBookings> {
       select: {
         ...bookingSelect,
         provider: {
-          select: { displayName: true, userId: true },
+          select: { id: true, displayName: true, userId: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -462,10 +496,11 @@ export async function getMyBookings(): Promise<MyBookings> {
       serviceAddress: b.serviceAddress,
       requesterNotes: b.requesterNotes,
       createdAt: b.createdAt,
+      scheduledAt: b.scheduledStart,
       confirmedAt: b.confirmedAt,
       completedAt: b.completedAt,
       cancelledAt: b.cancelledAt,
-      provider: { displayName: b.provider.displayName, userId: b.provider.userId },
+      provider: { id: b.provider.id, displayName: b.provider.displayName, userId: b.provider.userId },
       category: b.category,
       actions: computeBookingActions(b.status, authUser.id, b.requesterId, b.provider.userId, b.payment?.status ?? undefined),
       hasReview: b.review !== null,
@@ -481,6 +516,7 @@ export async function getMyBookings(): Promise<MyBookings> {
       serviceAddress: b.serviceAddress,
       requesterNotes: b.requesterNotes,
       createdAt: b.createdAt,
+      scheduledAt: b.scheduledStart,
       confirmedAt: b.confirmedAt,
       completedAt: b.completedAt,
       cancelledAt: b.cancelledAt,
@@ -501,7 +537,23 @@ export async function confirmBooking(bookingId: string): Promise<BookingTransiti
   if (!isValidUUID(bookingId)) return { success: false, error: 'Invalid booking ID.' }
   const { id: userId } = await requireAuthUser()
   const result = await transitionBookingStatus(bookingId, 'CONFIRMED', userId)
-  if (result.success) revalidatePath('/bookings')
+  if (result.success) {
+    // Generate a 4-digit job start code (like Urban Company's OTP).
+    // Requester shows this to the provider when they arrive — proves physical co-presence.
+    // Rejection sampling removes modulo bias: 65 536 is not divisible by 9 000,
+    // so naive % would favour the first 2 536 values. Redraw until below the
+    // largest multiple of 9 000 that fits in a Uint16.
+    const RANGE = 9000
+    const CEIL = 65536 - (65536 % RANGE)
+    let raw: number
+    do { raw = crypto.getRandomValues(new Uint16Array(1))[0] } while (raw >= CEIL)
+    const otp = String(1000 + (raw % RANGE))
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { startOtp: otp, startOtpGeneratedAt: new Date() },
+    })
+    revalidatePath('/bookings')
+  }
   return result
 }
 
@@ -515,11 +567,48 @@ export async function rejectBooking(bookingId: string): Promise<BookingTransitio
   return result
 }
 
-export async function startBooking(bookingId: string): Promise<BookingTransitionResult> {
+export async function startBooking(bookingId: string, otp: string): Promise<BookingTransitionResult> {
   if (!isValidUUID(bookingId)) return { success: false, error: 'Invalid booking ID.' }
+  if (!otp || otp.trim().length !== 4) return { success: false, error: 'Enter the 4-digit job code.' }
+
   const { id: userId } = await requireAuthUser()
+
+  const { allowed } = checkRateLimit(`${userId}:startBooking:${bookingId}`, {
+    maxRequests: 5,
+    windowMs: 10 * 60_000, // 5 attempts per 10 minutes per booking
+  })
+  if (!allowed) return { success: false, error: 'Too many attempts. Please wait before trying again.' }
+
+  // Verify OTP before allowing the transition — requester must share code with provider in person.
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { startOtp: true, startOtpGeneratedAt: true, status: true },
+  })
+  if (!booking) return { success: false, error: 'Booking not found.' }
+  if (booking.status !== 'CONFIRMED') return { success: false, error: 'Booking is not in a confirmable state.' }
+
+  // Expire codes older than 24 h — requester can refresh by reopening the booking detail.
+  const OTP_TTL_MS = 24 * 60 * 60_000
+  if (
+    booking.startOtpGeneratedAt &&
+    Date.now() - booking.startOtpGeneratedAt.getTime() > OTP_TTL_MS
+  ) {
+    return { success: false, error: 'Job code has expired. Ask the customer to refresh their booking page.' }
+  }
+
+  if (!booking.startOtp || booking.startOtp !== otp.trim()) {
+    return { success: false, error: 'Incorrect job code. Ask the customer for the 4-digit code shown on their app.' }
+  }
+
   const result = await transitionBookingStatus(bookingId, 'IN_PROGRESS', userId)
-  if (result.success) revalidatePath('/bookings')
+  if (result.success) {
+    // Clear the OTP once used — it's a one-time code.
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { startOtp: null, startOtpGeneratedAt: null },
+    })
+    revalidatePath('/bookings')
+  }
   return result
 }
 
@@ -641,6 +730,7 @@ export async function getMyProviderProfile(): Promise<ProviderDashboard | null> 
       serviceAreas: {
         select: { areaName: true, city: true },
       },
+      _count: { select: { availability: { where: { isActive: true } } } },
     },
   })
 
@@ -657,6 +747,7 @@ export async function getMyProviderProfile(): Promise<ProviderDashboard | null> 
       customRate: s.customRate ? Number(s.customRate) : null,
     })),
     areas: profile.serviceAreas,
+    activeAvailabilityCount: profile._count.availability,
   }
 }
 
@@ -679,10 +770,14 @@ export interface BookingDetail {
   cancelledAt: Date | null
   conversationId: string | null
   role: 'requester' | 'provider'
+  // Phone numbers are never exposed — in-app chat is the communication channel.
   otherParty: {
     name: string
-    phone: string | null
   }
+  // Only set when role is 'requester' — used for Book Again link.
+  providerProfileId: string | null
+  // Only set for the requester when status is CONFIRMED; null otherwise.
+  startOtp: string | null
   category: {
     name: string
     iconName: string | null
@@ -714,22 +809,20 @@ export async function getBookingById(id: string): Promise<BookingDetail | null> 
         completedAt: true,
         cancelledAt: true,
         requesterId: true,
+        startOtp: true,
         review: { select: { id: true } },
         payment: { select: { status: true } },
         conversation: { select: { id: true } },
         provider: {
           select: {
+            id: true,
             userId: true,
             displayName: true,
-            user: {
-              select: { phone: true },
-            },
           },
         },
         requester: {
           select: {
             fullName: true,
-            phone: true,
           },
         },
         category: {
@@ -752,8 +845,14 @@ export async function getBookingById(id: string): Promise<BookingDetail | null> 
 
     const otherParty =
       role === 'requester'
-        ? { name: booking.provider.displayName, phone: booking.provider.user.phone }
-        : { name: booking.requester.fullName, phone: booking.requester.phone }
+        ? { name: booking.provider.displayName }
+        : { name: booking.requester.fullName }
+
+    // Only the requester sees the OTP, and only while the booking is CONFIRMED (waiting to start).
+    const startOtp =
+      role === 'requester' && booking.status === 'CONFIRMED'
+        ? (booking.startOtp ?? null)
+        : null
 
     return {
       id: booking.id,
@@ -771,6 +870,8 @@ export async function getBookingById(id: string): Promise<BookingDetail | null> 
       conversationId: booking.conversation?.id ?? null,
       role,
       otherParty,
+      startOtp,
+      providerProfileId: role === 'requester' ? booking.provider.id : null,
       category: booking.category,
       actions: computeBookingActions(
         booking.status,

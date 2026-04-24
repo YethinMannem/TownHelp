@@ -1,10 +1,9 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useTransition, useState } from 'react'
 import {
   confirmBooking,
   rejectBooking,
-  startBooking,
   completeBooking,
   cancelBooking,
   disputeBooking,
@@ -20,6 +19,7 @@ interface BookingActionButtonsProps {
 
 export default function BookingActionButtons({ bookingId, actions }: BookingActionButtonsProps) {
   const [isPending, startTransition] = useTransition()
+  const [confirmingDone, setConfirmingDone] = useState(false)
   const { toast } = useToast()
 
   const hasAnyAction = Object.values(actions).some(Boolean)
@@ -34,6 +34,11 @@ export default function BookingActionButtons({ bookingId, actions }: BookingActi
     })
   }
 
+  function handleMarkDone(): void {
+    setConfirmingDone(false)
+    handleAction(() => completeBooking(bookingId))
+  }
+
   return (
     <div className="mt-3 pt-3 border-t border-outline-variant/20 flex flex-wrap gap-2">
       {actions.canConfirm && (
@@ -43,7 +48,7 @@ export default function BookingActionButtons({ bookingId, actions }: BookingActi
           disabled={isPending}
           onClick={() => handleAction(() => confirmBooking(bookingId))}
         >
-          Confirm
+          Accept
         </Button>
       )}
       {actions.canReject && (
@@ -53,28 +58,43 @@ export default function BookingActionButtons({ bookingId, actions }: BookingActi
           disabled={isPending}
           onClick={() => handleAction(() => rejectBooking(bookingId))}
         >
-          Reject
+          Decline
         </Button>
       )}
-      {actions.canStart && (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={isPending}
-          onClick={() => handleAction(() => startBooking(bookingId))}
-        >
-          Start
-        </Button>
-      )}
-      {actions.canComplete && (
+      {actions.canComplete && !confirmingDone && (
         <Button
           variant="primary"
           size="sm"
           disabled={isPending}
-          onClick={() => handleAction(() => completeBooking(bookingId))}
+          onClick={() => setConfirmingDone(true)}
         >
-          Complete
+          Mark as Done
         </Button>
+      )}
+      {actions.canComplete && confirmingDone && (
+        <div className="w-full bg-surface-container rounded-xl px-3 py-2.5 space-y-2">
+          <p className="text-xs font-body text-on-surface">
+            Mark this job as complete? This cannot be undone.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={isPending}
+              onClick={handleMarkDone}
+            >
+              Yes, mark done
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isPending}
+              onClick={() => setConfirmingDone(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
       )}
       {actions.canCancel && (
         <Button
@@ -83,7 +103,7 @@ export default function BookingActionButtons({ bookingId, actions }: BookingActi
           disabled={isPending}
           onClick={() => handleAction(() => cancelBooking(bookingId))}
         >
-          Cancel
+          Cancel Booking
         </Button>
       )}
       {actions.canDispute && (
@@ -93,7 +113,7 @@ export default function BookingActionButtons({ bookingId, actions }: BookingActi
           disabled={isPending}
           onClick={() => handleAction(() => disputeBooking(bookingId))}
         >
-          Dispute
+          Report Problem
         </Button>
       )}
       {actions.awaitingPayment && (

@@ -50,7 +50,7 @@ export default function BookingTabs({
               : 'text-on-surface-variant hover:text-on-surface'
           )}
         >
-          Booked
+          My Bookings
           {(requesterCount > 0 || requesterPastCount > 0) && (
             <span className="ml-1.5 text-xs font-normal whitespace-nowrap">({requesterCount + requesterPastCount})</span>
           )}
@@ -65,7 +65,7 @@ export default function BookingTabs({
           )}
         >
           <span className="inline-flex items-center justify-center gap-1.5">
-            Received
+            My Work
             {(providerCount > 0 || providerPastCount > 0) && (
               <span className="text-xs font-normal whitespace-nowrap">({providerCount + providerPastCount})</span>
             )}
