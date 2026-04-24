@@ -309,6 +309,8 @@ model Booking {
   startedAt       DateTime?       @map("started_at")
   completedAt     DateTime?       @map("completed_at")
   cancelledAt     DateTime?       @map("cancelled_at")
+  startOtp        String?         @map("start_otp") @db.VarChar(6)
+  startOtpGeneratedAt DateTime?   @map("start_otp_generated_at")
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
