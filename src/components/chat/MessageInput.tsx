@@ -3,6 +3,13 @@
 import { useState, useRef, useTransition } from 'react'
 import { sendMessage } from '@/app/actions/chat'
 
+const QUICK_REPLIES = [
+  'On my way! ETA 10 mins',
+  'Please share your address',
+  'Job complete — please confirm',
+  'Payment received, thanks!',
+] as const
+
 interface MessageInputProps {
   conversationId: string
 }
@@ -42,6 +49,20 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
         <p role="alert" className="text-error text-xs mb-2">
           {error}
         </p>
+      )}
+      {!content.trim() && (
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide mb-2 max-w-2xl mx-auto">
+          {QUICK_REPLIES.map((text) => (
+            <button
+              key={text}
+              type="button"
+              onClick={() => { setContent(text); textareaRef.current?.focus() }}
+              className="shrink-0 px-3 py-1 rounded-full text-xs font-body font-medium bg-surface-container text-on-surface-variant hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors whitespace-nowrap"
+            >
+              {text}
+            </button>
+          ))}
+        </div>
       )}
       <div className="flex items-end gap-2 max-w-2xl mx-auto">
         <label htmlFor="message-input" className="sr-only">

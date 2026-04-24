@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import { Home, CalendarDays, Heart, User, MessageCircle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import SignOutButton from '@/components/SignOutButton'
 
 interface NavItem {
   label: string
@@ -23,21 +22,17 @@ function isHidden(pathname: string): boolean {
 }
 
 interface BottomNavProps {
-  providerHref?: string
   unreadMessagesCount?: number
 }
 
-export default function BottomNav({
-  providerHref = '/provider/register',
-  unreadMessagesCount = 0,
-}: BottomNavProps) {
+export default function BottomNav({ unreadMessagesCount = 0 }: BottomNavProps) {
   const pathname = usePathname()
   const navItems: NavItem[] = [
     { label: 'Home', href: '/', Icon: Home, matchPaths: ['/'] },
     { label: 'Bookings', href: '/bookings', Icon: CalendarDays, matchPaths: ['/bookings'] },
     { label: 'Messages', href: '/chat', Icon: MessageCircle, matchPaths: ['/chat'] },
     { label: 'Favorites', href: '/favorites', Icon: Heart, matchPaths: ['/favorites'] },
-    { label: 'Provider', href: providerHref, Icon: User, matchPaths: ['/provider'] },
+    { label: 'Account', href: '/profile', Icon: User, matchPaths: ['/profile'] },
   ]
 
   if (isHidden(pathname)) return null
@@ -46,7 +41,7 @@ export default function BottomNav({
     <>
       {/* Mobile bottom nav */}
       <nav
-        aria-label="Main navigation"
+        aria-label="Bottom navigation"
         className="fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-outline-variant/20 lg:hidden"
       >
         <div className="flex items-center justify-around px-2 h-16 max-w-lg mx-auto w-full">
@@ -93,14 +88,13 @@ export default function BottomNav({
               </Link>
             )
           })}
-          <SignOutButton compact />
         </div>
         <div className="h-[env(safe-area-inset-bottom)]" />
       </nav>
 
       {/* Desktop sidebar nav */}
       <nav
-        aria-label="Main navigation"
+        aria-label="Sidebar navigation"
         className="hidden lg:flex fixed top-0 left-0 bottom-0 z-40 w-60 bg-surface-container-lowest border-r border-outline-variant/20 flex-col py-6 px-3"
       >
         {/* Brand */}
@@ -147,10 +141,6 @@ export default function BottomNav({
               </Link>
             )
           })}
-        </div>
-
-        <div className="px-3 pt-4">
-          <SignOutButton />
         </div>
       </nav>
     </>

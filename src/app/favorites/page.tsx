@@ -25,6 +25,13 @@ function getInitials(name: string): string {
     .join('')
 }
 
+function rateLabel(rateType: string | null | undefined): string {
+  if (rateType === 'PER_VISIT') return '/visit'
+  if (rateType === 'PER_KG') return '/kg'
+  if (rateType === 'FIXED') return ' flat'
+  return '/hr'
+}
+
 export default async function FavoritesPage() {
   await requireAuthUser()
 
@@ -95,7 +102,7 @@ export default async function FavoritesPage() {
                         <div className="flex items-center gap-1 shrink-0">
                           <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
                           <span className="text-sm font-semibold text-on-surface font-body">
-                            {provider.ratingAvg.toFixed(1)}
+                            {(Number(provider.ratingAvg ?? 0)).toFixed(1)}
                           </span>
                         </div>
                       </div>
@@ -116,7 +123,7 @@ export default async function FavoritesPage() {
 
                       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-on-surface-variant font-body">
                         <span className="font-semibold text-primary">
-                          ₹{provider.baseRate}/hr
+                          ₹{provider.services[0]?.customRate ?? provider.baseRate}{rateLabel(provider.services[0]?.rateType)}
                         </span>
                         {provider.areas.length > 0 && (
                           <span className="flex items-center gap-0.5">
@@ -128,7 +135,13 @@ export default async function FavoritesPage() {
                     </div>
                   </Link>
 
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex flex-col items-end gap-2">
+                    <Link
+                      href={`/provider/${provider.id}`}
+                      className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-xl bg-primary text-on-primary text-xs font-semibold font-body hover:opacity-90 transition-opacity"
+                    >
+                      Book
+                    </Link>
                     <UnfavoriteButton
                       providerId={provider.id}
                       providerName={provider.displayName}

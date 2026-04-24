@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { MapPin } from 'lucide-react'
+import { MapPin, BadgeCheck, IndianRupee, Shield } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function WelcomePage() {
-  // Already logged in → go straight to home
   const supabase = await createClient()
   const {
     data: { user },
@@ -46,6 +45,25 @@ export default async function WelcomePage() {
           </div>
         </div>
 
+        {/* Value propositions */}
+        <div className="w-full max-w-sm space-y-2.5">
+          {[
+            { icon: BadgeCheck, title: 'Verified providers', desc: 'Every provider is ID-checked before they can accept bookings' },
+            { icon: IndianRupee, title: 'Upfront pricing', desc: 'See the rate before you book. Pay only after the job is done' },
+            { icon: Shield, title: 'Safe & reliable', desc: 'Disputes resolved within 24 hours. Your home, protected' },
+          ].map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="flex items-start gap-3 px-3">
+              <div className="w-8 h-8 rounded-xl bg-primary-fixed flex items-center justify-center shrink-0 mt-0.5">
+                <Icon className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-on-surface font-body">{title}</p>
+                <p className="text-xs text-on-surface-variant font-body mt-0.5">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* CTA buttons */}
         <div className="w-full max-w-sm flex flex-col gap-4 mb-8">
           <Link
@@ -85,6 +103,9 @@ export default async function WelcomePage() {
             <Link href="/login" className="text-primary font-semibold hover:underline">
               Sign in
             </Link>
+          </p>
+          <p className="text-center text-xs text-on-surface-variant font-body mt-2">
+            Trusted by families in Kukatpally, KPHB &amp; Miyapur
           </p>
         </div>
 

@@ -13,13 +13,11 @@ import { Search, ArrowRight, Briefcase } from 'lucide-react'
 export default async function HomePage() {
   const authUser = await requireAuthUser('/welcome')
 
-  const [viewer, categories, { providers }, areas] = await Promise.all([
+  const [viewer, categories, { providers, totalCount }, areas, unreadNotificationsCount, dbUser] = await Promise.all([
     getViewerContext(),
     getServiceCategories(),
     getProviders({ limit: 10 }),
     getServiceAreas(),
-  ])
-  const [unreadNotificationsCount, dbUser] = await Promise.all([
     getUnreadNotificationCount(authUser.id),
     prisma.user.findUnique({
       where: { id: authUser.id },
@@ -28,6 +26,7 @@ export default async function HomePage() {
   ])
 
   const displayName = dbUser?.fullName?.split(' ')[0] ?? 'there'
+  const areaName = viewer.locationLabel ? viewer.locationLabel.split(',')[0] : null
 
   return (
     <div className="min-h-screen bg-surface pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-60">
@@ -61,13 +60,24 @@ export default async function HomePage() {
           className="flex items-center gap-3 w-full max-w-xl px-4 py-3 bg-surface-container rounded-2xl text-on-surface-variant transition-colors hover:bg-surface-container-high"
         >
           <Search className="w-5 h-5 text-outline shrink-0" />
-          <span className="text-sm font-body">Search for services or providers...</span>
+          <span className="text-sm font-body">Find a maid, cook, or electrician near you...</span>
         </Link>
+
+        {/* Urgency strip */}
+        {totalCount > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-primary-fixed/60 rounded-xl text-sm font-body text-on-surface">
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse shrink-0" />
+            <span>
+              <span className="font-semibold">{totalCount} provider{totalCount !== 1 ? 's' : ''}</span> available
+              {areaName ? ` in ${areaName}` : ' near you'}
+            </span>
+          </div>
+        )}
 
         {/* Category grid */}
         <section>
           <h2 className="font-headline text-base font-bold text-on-surface mb-3">
-            Browse by category
+            What can we help with today?
           </h2>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(88px,1fr))] gap-2.5 sm:gap-3">
             {categories.map((cat) => {
@@ -91,7 +101,7 @@ export default async function HomePage() {
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-headline text-base font-bold text-on-surface">
-              Popular near you
+              {areaName ? `Top-rated in ${areaName}` : 'Top-rated providers'}
             </h2>
             {providers.length > 0 && (
               <Link
@@ -126,12 +136,14 @@ export default async function HomePage() {
                   <div key={provider.id} className="w-[min(75vw,18rem)] shrink-0">
                     <ProviderCard
                       providerId={provider.id}
-                      name={provider.user.fullName}
+                      name={provider.displayName}
                       role={provider.services[0]?.category.name ?? 'Service Provider'}
                       rating={provider.ratingAvg}
                       reviewCount={provider.ratingCount}
                       pricePerHour={provider.services[0]?.customRate ?? provider.baseRate}
                       isVerified={provider.isVerified}
+                      completedBookings={provider.completedBookings}
+                      rateType={provider.services[0]?.rateType ?? null}
                     />
                   </div>
                 ))}
@@ -142,12 +154,14 @@ export default async function HomePage() {
                   <ProviderCard
                     key={provider.id}
                     providerId={provider.id}
-                    name={provider.user.fullName}
+                    name={provider.displayName}
                     role={provider.services[0]?.category.name ?? 'Service Provider'}
                     rating={provider.ratingAvg}
                     reviewCount={provider.ratingCount}
                     pricePerHour={provider.services[0]?.customRate ?? provider.baseRate}
                     isVerified={provider.isVerified}
+                    completedBookings={provider.completedBookings}
+                    rateType={provider.services[0]?.rateType ?? null}
                   />
                 ))}
               </div>
@@ -172,7 +186,7 @@ export default async function HomePage() {
                 href="/provider/register"
                 className="shrink-0 text-sm font-semibold text-primary font-body hover:underline"
               >
-                Get started
+                Start earning →
               </Link>
             </div>
           </section>

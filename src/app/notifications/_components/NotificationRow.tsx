@@ -46,34 +46,78 @@ function getNotificationIcon(type: NotificationType) {
   }
 }
 
+function getNotificationUrl(
+  type: NotificationType,
+  data: Record<string, unknown> | null,
+): string | null {
+  switch (type) {
+    case 'BOOKING_REQUEST':
+    case 'BOOKING_CONFIRMED':
+    case 'BOOKING_CANCELLED':
+    case 'DISPUTE_OPENED':
+    case 'DISPUTE_RESOLVED':
+    case 'PAYMENT_RECEIVED':
+      return typeof data?.bookingId === 'string'
+        ? `/bookings/${data.bookingId}`
+        : '/bookings'
+    case 'REVIEW_RECEIVED':
+      return typeof data?.bookingId === 'string'
+        ? `/bookings/${data.bookingId}`
+        : '/provider/dashboard'
+    case 'MESSAGE_NEW':
+      return typeof data?.conversationId === 'string'
+        ? `/chat/${data.conversationId}`
+        : '/chat'
+    case 'SYSTEM':
+      return null
+    default:
+      return null
+  }
+}
+
+function getAriaLabel(type: NotificationType, title: string): string {
+  switch (type) {
+    case 'BOOKING_REQUEST':
+    case 'BOOKING_CONFIRMED':
+    case 'BOOKING_CANCELLED':
+    case 'DISPUTE_OPENED':
+    case 'DISPUTE_RESOLVED':
+    case 'PAYMENT_RECEIVED':
+    case 'REVIEW_RECEIVED':
+      return `Go to booking: ${title}`
+    case 'MESSAGE_NEW':
+      return `Open message: ${title}`
+    default:
+      return title
+  }
+}
+
 export default function NotificationRow({ notification }: NotificationRowProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [isRead, setIsRead] = useState(notification.isRead)
 
-  function handleClick() {
-    if (isRead) return
-    startTransition(async () => {
-      await readNotification(notification.id)
-      setIsRead(true)
-      router.refresh()
-    })
+  async function handleClick() {
+    const url = getNotificationUrl(notification.type, notification.data)
+    if (!isRead) {
+      startTransition(async () => {
+        await readNotification(notification.id)
+        setIsRead(true)
+      })
+    }
+    if (url) router.push(url)
   }
 
   return (
     <button
       onClick={handleClick}
-      disabled={isPending || isRead}
+      disabled={isPending}
       className={[
-        'w-full text-left bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-3.5 transition-all duration-150',
-        isRead
-          ? 'opacity-70'
-          : 'hover:bg-surface-container/30 cursor-pointer',
+        'w-full text-left bg-surface-container-lowest rounded-xl border border-outline-variant/20 p-3.5 transition-all duration-150 hover:bg-surface-container/30 cursor-pointer',
+        isRead ? 'opacity-70' : '',
         isPending ? 'opacity-50' : '',
       ].join(' ')}
-      aria-label={
-        isRead ? notification.title : `Mark as read: ${notification.title}`
-      }
+      aria-label={getAriaLabel(notification.type, notification.title)}
     >
       <div className="flex items-start gap-3">
         {/* Icon */}

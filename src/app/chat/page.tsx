@@ -3,6 +3,7 @@ import { getConversationsForViewer } from '@/services/chat.service'
 import Link from 'next/link'
 import type { ConversationItem } from '@/types'
 import { ArrowLeft, MessageSquare } from 'lucide-react'
+import { RelativeTime } from './_components/RelativeTime'
 
 const AVATAR_COLORS = [
   'bg-primary-fixed text-on-primary-fixed',
@@ -16,19 +17,6 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
 }
 
-function formatRelativeTime(date: Date): string {
-  const now = new Date()
-  const diffMs = now.getTime() - new Date(date).getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-
-  if (diffMins < 1) return 'now'
-  if (diffMins < 60) return `${diffMins}m`
-  const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours}h`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return `${diffDays}d`
-  return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-}
 
 export default async function ChatPage() {
   const authUser = await requireAuthUser()
@@ -90,7 +78,7 @@ export default async function ChatPage() {
                         {conversation.otherPartyName}
                       </span>
                       <span className="text-[11px] text-on-surface-variant font-body shrink-0">
-                        {formatRelativeTime(conversation.lastMessageAt)}
+                        <RelativeTime isoDate={conversation.lastMessageAt.toISOString()} />
                       </span>
                     </div>
 

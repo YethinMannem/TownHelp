@@ -31,12 +31,10 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   let viewer: Awaited<ReturnType<typeof getViewerContext>> | null = null
-  let providerHref = '/provider/register'
   let unreadMessagesCount = 0
 
   try {
     viewer = await getViewerContext()
-    providerHref = viewer.providerProfileId ? '/provider/dashboard' : '/provider/register'
 
     if (viewer.user) {
       try {
@@ -61,7 +59,6 @@ export default async function RootLayout({
           {children}
           {viewer?.user && (
             <BottomNav
-              providerHref={providerHref}
               unreadMessagesCount={unreadMessagesCount}
             />
           )}
