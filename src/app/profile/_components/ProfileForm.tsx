@@ -1,11 +1,12 @@
 'use client'
 
-import { useTransition, useState, useId } from 'react'
+import { useTransition, useState } from 'react'
 import { updateProfile } from '@/app/actions/user'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { User, MapPin, CheckCircle } from 'lucide-react'
 import SignOutButton from '@/components/SignOutButton'
+import LocationInput from '@/components/LocationInput'
 
 interface ProfileFormProps {
   fullName: string
@@ -16,13 +17,11 @@ interface ProfileFormProps {
 export default function ProfileForm({
   fullName,
   locationLabel,
-  areas,
 }: ProfileFormProps) {
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
-  const datalistId = useId()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>): void {
     e.preventDefault()
@@ -70,19 +69,11 @@ export default function ProfileForm({
             <MapPin className="w-3.5 h-3.5" />
             Neighborhood / area
           </label>
-          <input
+          <LocationInput
             name="locationLabel"
-            type="text"
-            list={datalistId}
             defaultValue={locationLabel}
             placeholder="e.g. Madhapur, Kondapur…"
-            className="w-full px-3.5 py-2.5 text-sm font-body bg-surface-container rounded-xl text-on-surface placeholder-on-surface-variant/60 border border-outline-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
           />
-          <datalist id={datalistId}>
-            {areas.map((a) => (
-              <option key={a} value={a} />
-            ))}
-          </datalist>
           <p className="text-xs text-on-surface-variant font-body">
             Shown in your home screen header. Helps match you with local providers.
           </p>
