@@ -9,6 +9,15 @@ function titleCase(str: string): string {
   return str.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+function parseCoordinate(value: FormDataEntryValue | null, min: number, max: number): number | null {
+  if (typeof value !== 'string' || !value.trim()) return null
+
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return null
+
+  return parsed
+}
+
 interface UpdateProfileResult {
   success: boolean
   error?: string
@@ -21,6 +30,8 @@ export async function updateProfile(
 
   const rawName = ((formData.get('fullName') as string | null) ?? '').trim()
   const rawLocation = ((formData.get('locationLabel') as string | null) ?? '').trim()
+  const locationLat = parseCoordinate(formData.get('locationLat'), -90, 90)
+  const locationLng = parseCoordinate(formData.get('locationLng'), -180, 180)
 
   if (rawName.length < 2 || rawName.length > 100) {
     return { success: false, error: 'Name must be between 2 and 100 characters.' }
@@ -44,8 +55,14 @@ export async function updateProfile(
     const newMeta: Record<string, unknown> = { ...existingMeta }
     if (locationLabel) {
       newMeta.locationLabel = locationLabel
+      if (locationLat !== null && locationLng !== null) {
+        newMeta.locationLat = locationLat
+        newMeta.locationLng = locationLng
+      }
     } else {
       delete newMeta.locationLabel
+      delete newMeta.locationLat
+      delete newMeta.locationLng
     }
 
     await prisma.user.update({

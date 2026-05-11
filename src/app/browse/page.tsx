@@ -8,22 +8,22 @@ import SortSelect from './SortSelect'
 import Pagination from './Pagination'
 import type { ProviderSortOption } from '@/types'
 
-const VALID_SORTS = new Set<string>(['rating', 'price_low', 'price_high', 'experience'])
+const VALID_SORTS = new Set<string>(['rating', 'price_low', 'price_high', 'experience', 'nearest'])
 const PAGE_SIZE = 20
 
 interface BrowsePageProps {
-  searchParams: Promise<{ category?: string; search?: string; area?: string; sort?: string; page?: string; availableToday?: string; lat?: string; lng?: string; nearMe?: string }>
+  searchParams: Promise<{ category?: string; search?: string; area?: string; sort?: string; page?: string; availableToday?: string; lat?: string; lng?: string; nearMe?: string; locationLabel?: string }>
 }
 
 export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   await requireAuthUser('/welcome')
 
-  const { category, search, area, sort: rawSort, page: rawPage, availableToday: rawAvailableToday, lat: rawLat, lng: rawLng, nearMe: rawNearMe } = await searchParams
+  const { category, search, area, sort: rawSort, page: rawPage, availableToday: rawAvailableToday, lat: rawLat, lng: rawLng, nearMe: rawNearMe, locationLabel: rawLocationLabel } = await searchParams
 
-  const sort = (VALID_SORTS.has(rawSort ?? '') ? rawSort : 'rating') as ProviderSortOption
+  const nearMe = rawNearMe === '1'
+  const sort = (VALID_SORTS.has(rawSort ?? '') ? rawSort : nearMe ? 'nearest' : 'rating') as ProviderSortOption
   const page = Math.max(parseInt(rawPage ?? '1', 10) || 1, 1)
   const availableToday = rawAvailableToday === '1'
-  const nearMe = rawNearMe === '1'
   const lat = rawLat ? parseFloat(rawLat) : undefined
   const lng = rawLng ? parseFloat(rawLng) : undefined
 
@@ -52,6 +52,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
     lat: nearMe ? rawLat : undefined,
     lng: nearMe ? rawLng : undefined,
     nearMe: nearMe ? '1' : undefined,
+    locationLabel: nearMe ? rawLocationLabel : undefined,
   }
 
   const categoryLabel = category
@@ -78,19 +79,22 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
         </h1>
       </header>
 
-      <div className="pt-14 px-4 lg:px-8 max-w-5xl mx-auto">
+      <div className="pt-14 px-4 lg:px-8 max-w-6xl mx-auto">
         {/* Search & Filters */}
-        <div className="py-4 max-w-2xl">
+        <div className="py-4 lg:py-6">
+          <div className="max-w-2xl rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-3 shadow-sm">
           <SearchFilters
             categorySlug={category}
             currentSearch={search}
             currentAvailableToday={availableToday}
             currentNearMe={nearMe}
+            currentLocationLabel={nearMe ? (rawLocationLabel ?? 'Near you') : ''}
           />
 
           {/* Sort */}
           <div className="mt-3 max-w-[200px]">
             <SortSelect currentSort={sort} searchParams={filterParams} />
+          </div>
           </div>
 
           {/* Category chips when viewing all */}
@@ -153,7 +157,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(158px,1fr))] gap-3 lg:gap-4">
               {providers.map((provider) => (
                 <ProviderCard
                   key={provider.id}

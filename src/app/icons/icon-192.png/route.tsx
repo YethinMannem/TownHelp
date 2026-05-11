@@ -1,0 +1,38 @@
+import { ImageResponse } from 'next/og'
+
+export const runtime = 'edge'
+
+const SIZE = 192
+
+export async function GET() {
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: SIZE,
+          height: SIZE,
+          background: '#4e644f',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={SIZE * 0.65}
+          height={SIZE * 0.65}
+          viewBox="0 0 192 192"
+        >
+          <polygon points="96,46 150,90 42,90" fill="white" />
+          <rect x="52" y="88" width="88" height="64" rx="3" fill="white" />
+          <rect x="61" y="99" width="19" height="17" rx="3" fill="#4e644f" />
+          <rect x="112" y="99" width="19" height="17" rx="3" fill="#4e644f" />
+          <path d="M83 152 L83 123 Q83 110 96 110 Q109 110 109 123 L109 152 Z" fill="#4e644f" />
+          <circle cx="96" cy="44" r="9" fill="#f3dfce" />
+          <circle cx="96" cy="44" r="5" fill="#6a5c4e" />
+        </svg>
+      </div>
+    ),
+    { width: SIZE, height: SIZE }
+  )
+}

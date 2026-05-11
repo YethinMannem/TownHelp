@@ -1,5 +1,6 @@
 'use client'
 
+import { useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, CalendarDays, Heart, User, MessageCircle } from 'lucide-react'
@@ -25,8 +26,34 @@ interface BottomNavProps {
   unreadMessagesCount?: number
 }
 
+let hasHydrated = false
+
+function subscribeToHydrationStore(onStoreChange: () => void): () => void {
+  if (!hasHydrated) {
+    queueMicrotask(() => {
+      hasHydrated = true
+      onStoreChange()
+    })
+  }
+  return () => {}
+}
+
+function getClientSnapshot(): boolean {
+  return hasHydrated
+}
+
+function getServerSnapshot(): boolean {
+  return false
+}
+
 export default function BottomNav({ unreadMessagesCount = 0 }: BottomNavProps) {
   const pathname = usePathname()
+  const mounted = useSyncExternalStore(
+    subscribeToHydrationStore,
+    getClientSnapshot,
+    getServerSnapshot
+  )
+
   const navItems: NavItem[] = [
     { label: 'Home', href: '/', Icon: Home, matchPaths: ['/'] },
     { label: 'Bookings', href: '/bookings', Icon: CalendarDays, matchPaths: ['/bookings'] },
@@ -35,16 +62,16 @@ export default function BottomNav({ unreadMessagesCount = 0 }: BottomNavProps) {
     { label: 'Account', href: '/profile', Icon: User, matchPaths: ['/profile'] },
   ]
 
-  if (isHidden(pathname)) return null
+  if (!mounted || isHidden(pathname)) return null
 
   return (
     <>
       {/* Mobile bottom nav */}
       <nav
         aria-label="Bottom navigation"
-        className="fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-outline-variant/20 lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-outline-variant/20 shadow-[0_-12px_32px_rgba(0,0,0,0.07)] lg:hidden"
       >
-        <div className="flex items-center justify-around px-2 h-16 max-w-lg mx-auto w-full">
+        <div className="grid grid-cols-5 items-center px-2 h-16 max-w-lg mx-auto w-full">
           {navItems.map(({ label, href, Icon, matchPaths }) => {
             const isActive = matchPaths.some((p) =>
               p === '/' ? pathname === '/' : pathname.startsWith(p)
@@ -56,7 +83,7 @@ export default function BottomNav({ unreadMessagesCount = 0 }: BottomNavProps) {
                 href={href}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex flex-1 min-w-0 flex-col items-center justify-center gap-0.5 py-1 transition-colors duration-150',
+                  'flex min-w-0 flex-col items-center justify-center gap-0.5 py-1 transition-colors duration-150 rounded-2xl',
                   isActive
                     ? 'text-primary'
                     : 'text-on-surface-variant hover:text-on-surface'
@@ -95,16 +122,23 @@ export default function BottomNav({ unreadMessagesCount = 0 }: BottomNavProps) {
       {/* Desktop sidebar nav */}
       <nav
         aria-label="Sidebar navigation"
-        className="hidden lg:flex fixed top-0 left-0 bottom-0 z-40 w-60 bg-surface-container-lowest border-r border-outline-variant/20 flex-col py-6 px-3"
+        className="hidden lg:flex fixed top-0 left-0 bottom-0 z-40 w-60 bg-surface-container-lowest border-r border-outline-variant/20 flex-col py-6 px-3 shadow-[8px_0_28px_rgba(0,0,0,0.03)]"
       >
         {/* Brand */}
         <div className="px-3 mb-8">
-          <Link href="/" className="font-headline text-xl font-extrabold text-on-surface">
-            TownHelp
+          <Link href="/" className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-on-primary font-headline font-extrabold">
+              T
+            </span>
+            <span>
+              <span className="block font-headline text-xl font-extrabold text-on-surface leading-tight">
+                TownHelp
+              </span>
+              <span className="block text-xs text-on-surface-variant font-body">
+                Local services
+              </span>
+            </span>
           </Link>
-          <p className="text-xs text-on-surface-variant font-body mt-0.5">
-            Local services
-          </p>
         </div>
 
         {/* Nav links */}

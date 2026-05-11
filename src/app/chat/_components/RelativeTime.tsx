@@ -21,13 +21,15 @@ function formatRelativeTime(isoDate: string): string {
 }
 
 export function RelativeTime({ isoDate }: { isoDate: string }) {
-  const [label, setLabel] = useState(() => formatRelativeTime(isoDate))
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
-    setLabel(formatRelativeTime(isoDate))
-    const id = setInterval(() => setLabel(formatRelativeTime(isoDate)), 60_000)
+    const id = setInterval(() => setTick((value) => value + 1), 60_000)
     return () => clearInterval(id)
   }, [isoDate])
+
+  const label = formatRelativeTime(isoDate)
+  void tick
 
   return <time dateTime={isoDate}>{label}</time>
 }

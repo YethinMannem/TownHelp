@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireAuthUser, getViewerContext } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getServiceCategories, getProviders, getServiceAreas } from '@/app/actions/booking'
+import { getServiceCategories, getProviders } from '@/app/actions/booking'
 import { getUnreadNotificationCount } from '@/services/notification.service'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { CategoryCard } from '@/components/ui/CategoryCard'
@@ -12,12 +12,23 @@ import { Search, ArrowRight, Briefcase } from 'lucide-react'
 
 export default async function HomePage() {
   const authUser = await requireAuthUser('/welcome')
+  const viewer = await getViewerContext()
 
-  const [viewer, categories, { providers, totalCount }, areas, unreadNotificationsCount, dbUser] = await Promise.all([
-    getViewerContext(),
+  const hasSavedCoordinates = viewer.locationLat !== null && viewer.locationLng !== null
+  const areaName = viewer.locationLabel ? viewer.locationLabel.split(',')[0] : null
+  const providerLocationFilters = hasSavedCoordinates
+    ? {
+        lat: viewer.locationLat!,
+        lng: viewer.locationLng!,
+        sort: 'nearest' as const,
+      }
+    : areaName
+      ? { area: areaName }
+      : {}
+
+  const [categories, { providers, totalCount }, unreadNotificationsCount, dbUser] = await Promise.all([
     getServiceCategories(),
-    getProviders({ limit: 10 }),
-    getServiceAreas(),
+    getProviders({ limit: 10, ...providerLocationFilters }),
     getUnreadNotificationCount(authUser.id),
     prisma.user.findUnique({
       where: { id: authUser.id },
@@ -26,7 +37,17 @@ export default async function HomePage() {
   ])
 
   const displayName = dbUser?.fullName?.split(' ')[0] ?? 'there'
-  const areaName = viewer.locationLabel ? viewer.locationLabel.split(',')[0] : null
+  const browseParams = new URLSearchParams()
+  if (hasSavedCoordinates) {
+    browseParams.set('lat', viewer.locationLat!.toFixed(6))
+    browseParams.set('lng', viewer.locationLng!.toFixed(6))
+    browseParams.set('nearMe', '1')
+    browseParams.set('sort', 'nearest')
+    if (viewer.locationLabel) browseParams.set('locationLabel', viewer.locationLabel)
+  } else if (areaName) {
+    browseParams.set('area', areaName)
+  }
+  const browseHref = browseParams.size > 0 ? `/browse?${browseParams.toString()}` : '/browse'
 
   return (
     <div className="min-h-screen bg-surface pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-60">
@@ -41,13 +62,13 @@ export default async function HomePage() {
 
         {/* Onboarding banner — only shown when no location set */}
         {viewer.locationLabel === null && (
-          <OnboardingBanner areas={areas} fullName={dbUser?.fullName ?? displayName} />
+          <OnboardingBanner fullName={dbUser?.fullName ?? displayName} />
         )}
 
         {/* Greeting */}
         <section className="pt-4">
           <h1 className="font-headline text-2xl md:text-3xl font-extrabold text-on-surface">
-            Hi {displayName} 👋
+            Hi {displayName}
           </h1>
           <p className="mt-1 text-sm md:text-base text-on-surface-variant font-body">
             What do you need help with today?
@@ -56,8 +77,8 @@ export default async function HomePage() {
 
         {/* Search bar */}
         <Link
-          href="/browse"
-          className="flex items-center gap-3 w-full max-w-xl px-4 py-3 bg-surface-container rounded-2xl text-on-surface-variant transition-colors hover:bg-surface-container-high"
+          href={browseHref}
+          className="flex items-center gap-3 w-full max-w-xl px-4 py-3.5 bg-surface-container-lowest rounded-2xl border border-outline-variant/20 text-on-surface-variant transition-all hover:bg-surface-container hover:shadow-sm"
         >
           <Search className="w-5 h-5 text-outline shrink-0" />
           <span className="text-sm font-body">Find a maid, cook, or electrician near you...</span>
@@ -65,7 +86,7 @@ export default async function HomePage() {
 
         {/* Urgency strip */}
         {totalCount > 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-primary-fixed/60 rounded-xl text-sm font-body text-on-surface">
+          <div className="flex items-center gap-2 px-3.5 py-2.5 bg-primary-fixed/60 rounded-2xl text-sm font-body text-on-surface border border-primary/10">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse shrink-0" />
             <span>
               <span className="font-semibold">{totalCount} provider{totalCount !== 1 ? 's' : ''}</span> available
@@ -105,7 +126,7 @@ export default async function HomePage() {
             </h2>
             {providers.length > 0 && (
               <Link
-                href="/browse"
+                href={browseHref}
                 className="flex items-center gap-1 text-sm font-medium text-primary font-body hover:underline"
               >
                 See all
@@ -144,6 +165,7 @@ export default async function HomePage() {
                       isVerified={provider.isVerified}
                       completedBookings={provider.completedBookings}
                       rateType={provider.services[0]?.rateType ?? null}
+                      distanceKm={provider.distanceKm}
                     />
                   </div>
                 ))}
@@ -162,6 +184,7 @@ export default async function HomePage() {
                     isVerified={provider.isVerified}
                     completedBookings={provider.completedBookings}
                     rateType={provider.services[0]?.rateType ?? null}
+                    distanceKm={provider.distanceKm}
                   />
                 ))}
               </div>
@@ -172,7 +195,7 @@ export default async function HomePage() {
         {/* Become a provider CTA — shown only if user is not already a provider */}
         {!viewer.providerProfileId && (
           <section className="pb-2">
-            <div className="flex items-center gap-4 bg-surface-container rounded-2xl px-4 py-4">
+            <div className="flex items-center gap-4 bg-surface-container-lowest rounded-2xl border border-outline-variant/20 px-4 py-4">
               <div className="w-10 h-10 shrink-0 rounded-xl bg-primary-fixed flex items-center justify-center">
                 <Briefcase className="w-5 h-5 text-primary" />
               </div>

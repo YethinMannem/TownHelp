@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#4e644f">
+  <title>You're offline — TownHelp</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fbf9f7;
+      color: #1c1c1e;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      padding-bottom: calc(32px + env(safe-area-inset-bottom));
+    }
+
+    .icon-wrap {
+      width: 88px;
+      height: 88px;
+      background: #4e644f;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+      box-shadow: 0 4px 24px rgba(78, 100, 79, 0.25);
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1c1c1e;
+      margin-bottom: 10px;
+      text-align: center;
+      letter-spacing: -0.3px;
+    }
+
+    p {
+      font-size: 15px;
+      color: #6b6b6b;
+      text-align: center;
+      max-width: 300px;
+      line-height: 1.6;
+      margin-bottom: 36px;
+    }
+
+    .btn {
+      background: #4e644f;
+      color: #fff;
+      border: none;
+      padding: 15px 36px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: -0.1px;
+      transition: opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active { opacity: 0.8; transform: scale(0.98); }
+
+    .status {
+      margin-top: 20px;
+      font-size: 13px;
+      color: #a0a0a0;
+    }
+
+    .reconnected {
+      display: none;
+      margin-top: 16px;
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #c8e6c9;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="icon-wrap">
+    <!-- TownHelp house mark, inlined so it works offline -->
+    <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 192 192">
+      <polygon points="96,46 150,90 42,90" fill="white"/>
+      <rect x="52" y="88" width="88" height="64" rx="3" fill="white"/>
+      <rect x="61" y="99" width="19" height="17" rx="3" fill="#4e644f"/>
+      <rect x="112" y="99" width="19" height="17" rx="3" fill="#4e644f"/>
+      <path d="M83 152 L83 123 Q83 110 96 110 Q109 110 109 123 L109 152 Z" fill="#4e644f"/>
+      <circle cx="96" cy="44" r="9" fill="#f3dfce"/>
+      <circle cx="96" cy="44" r="5" fill="#6a5c4e"/>
+    </svg>
+  </div>
+
+  <h1>You're offline</h1>
+  <p>Check your internet connection. Your bookings and messages will sync automatically when you're back online.</p>
+
+  <button class="btn" onclick="tryReload()">Try again</button>
+
+  <p class="status" id="status">Waiting for connection…</p>
+  <div class="reconnected" id="reconnected">You're back online — reloading…</div>
+
+  <script>
+    function tryReload() {
+      window.location.reload()
+    }
+
+    window.addEventListener('online', () => {
+      document.getElementById('reconnected').style.display = 'block'
+      document.getElementById('status').style.display = 'none'
+      setTimeout(() => window.location.reload(), 1200)
+    })
+
+    window.addEventListener('offline', () => {
+      document.getElementById('reconnected').style.display = 'none'
+      document.getElementById('status').style.display = ''
+    })
+
+    // If we're somehow online already (cached page served incorrectly), redirect
+    if (navigator.onLine) {
+      setTimeout(() => window.location.replace('/'), 500)
+    }
+  </script>
+</body>
+</html>

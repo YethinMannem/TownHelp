@@ -4,6 +4,8 @@ import { useState, useTransition } from 'react'
 import { submitReview } from '@/app/actions/review'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
+import { Star } from 'lucide-react'
+import { cn } from '@/lib/cn'
 
 interface ReviewButtonProps {
   bookingId: string
@@ -49,18 +51,28 @@ export default function ReviewButton({ bookingId, hasReview, isCompleted }: Revi
   return (
     <div className="mt-3 pt-3 border-t border-outline-variant/20 space-y-3">
       <div className="flex items-center gap-3">
-        <label className="text-xs text-on-surface-variant font-body">Rating:</label>
-        <select
-          value={rating}
-          onChange={(e) => setRating(Number(e.target.value))}
-          className="text-xs border border-outline-variant rounded-lg px-2 py-1 bg-surface-container text-on-surface font-body focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          {[5, 4, 3, 2, 1].map((n) => (
-            <option key={n} value={n}>
-              {'⭐'.repeat(n)} ({n})
-            </option>
+        <span className="text-xs text-on-surface-variant font-body">Rating</span>
+        <div className="flex items-center gap-1" role="radiogroup" aria-label="Rating">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              aria-checked={rating === n}
+              aria-label={`${n} star${n === 1 ? '' : 's'}`}
+              onClick={() => setRating(n)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-amber-500 transition-colors hover:bg-amber-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Star
+                className={cn(
+                  'h-4 w-4',
+                  n <= rating ? 'fill-amber-500' : 'text-outline-variant'
+                )}
+              />
+            </button>
           ))}
-        </select>
+        </div>
+        <span className="text-xs font-body font-medium text-on-surface">{rating}/5</span>
       </div>
       <textarea
         value={comment}

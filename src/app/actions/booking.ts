@@ -13,7 +13,6 @@ import { sendPushToUser } from '@/lib/push'
 import { haversineKm } from '@/lib/geo'
 import type {
   ServiceCategoryItem,
-  ProviderListItem,
   ProviderListResult,
   ProviderSortOption,
   ProviderDashboard,
@@ -70,6 +69,7 @@ const SORT_ORDER_MAP: Record<ProviderSortOption, Record<string, string>> = {
   price_low: { baseRate: 'asc' },
   price_high: { baseRate: 'desc' },
   experience: { completedBookings: 'desc' },
+  nearest: { ratingAvg: 'desc' }, // DB tiebreaker; distance sort applied in memory
 }
 
 export async function getProviders(
@@ -81,7 +81,7 @@ export async function getProviders(
       ? { categorySlug: categorySlugOrFilters }
       : (categorySlugOrFilters ?? {})
 
-  const { categorySlug, search, area, lat, lng, radiusKm = 5, sort = 'rating', availableToday } = filters
+  const { categorySlug, search, area, lat, lng, sort = 'rating', availableToday } = filters
   const nearMe =
     typeof lat === 'number' &&
     typeof lng === 'number' &&
@@ -165,7 +165,7 @@ export async function getProviders(
     let rawProviders: Awaited<ReturnType<typeof prisma.providerProfile.findMany<{ select: typeof providerSelect }>>>
 
     if (nearMe) {
-      // Fetch all matching, filter by provider's travel radius from their home location
+      // Fetch all matching providers — must load all to filter by travel radius in memory
       rawProviders = await prisma.providerProfile.findMany({ where, select: providerSelect, orderBy })
 
       rawProviders = rawProviders.filter((p) =>
@@ -174,11 +174,14 @@ export async function getProviders(
         haversineKm(lat!, lng!, p.latitude, p.longitude) <= (p.maxTravelRadiusKm ?? 5)
       )
 
-      rawProviders.sort((a, b) => {
-        const distA = haversineKm(lat!, lng!, a.latitude!, a.longitude!)
-        const distB = haversineKm(lat!, lng!, b.latitude!, b.longitude!)
-        return distA - distB
-      })
+      // Only sort by distance when explicitly requested; otherwise preserve the DB orderBy
+      if (sort === 'nearest') {
+        rawProviders.sort((a, b) => {
+          const distA = haversineKm(lat!, lng!, a.latitude!, a.longitude!)
+          const distB = haversineKm(lat!, lng!, b.latitude!, b.longitude!)
+          return distA - distB
+        })
+      }
 
       totalCount = rawProviders.length
       rawProviders = rawProviders.slice(skip, skip + pageSize)
@@ -897,6 +900,7 @@ export interface TimeSlot {
   start: string   // "HH:MM" 24-hour
   end: string     // "HH:MM" 24-hour
   available: boolean
+  unavailableReason?: 'booked' | 'past'
 }
 
 export async function getAvailableSlots(
@@ -940,9 +944,10 @@ export async function getAvailableSlots(
     ? availability.endTime.getUTCMinutes()
     : 0
 
-  // Get existing bookings for this provider on this date that occupy time slots
-  const dayStart = new Date(dateStr + 'T00:00:00.000Z')
-  const dayEnd = new Date(dateStr + 'T23:59:59.999Z')
+  // Get existing bookings for this provider on this date that occupy time slots.
+  // Bookings are stored as UTC (IST input - 5:30h), so query the IST-equivalent UTC range.
+  const dayStart = new Date(new Date(dateStr + 'T00:00:00.000Z').getTime() - IST_OFFSET_MS)
+  const dayEnd = new Date(new Date(dateStr + 'T23:59:59.999Z').getTime() - IST_OFFSET_MS)
 
   const existingBookings = await prisma.booking.findMany({
     where: {
@@ -958,6 +963,7 @@ export async function getAvailableSlots(
 
   // Generate 1-hour slots within working hours
   const slots: TimeSlot[] = []
+  const now = new Date()
   let h = startHour
   let m = startMin
 
@@ -985,8 +991,9 @@ export async function getAvailableSlots(
     const endStr = `${String(slotEndH).padStart(2, '0')}:${String(slotEndM).padStart(2, '0')}`
 
     // Check if this slot conflicts with any existing booking
-    const slotStart = new Date(`${dateStr}T${startStr}:00.000Z`)
-    const slotEnd = new Date(`${dateStr}T${endStr}:00.000Z`)
+    // Convert slot times from IST to UTC to match how bookings are stored
+    const slotStart = new Date(new Date(`${dateStr}T${startStr}:00.000Z`).getTime() - IST_OFFSET_MS)
+    const slotEnd = new Date(new Date(`${dateStr}T${endStr}:00.000Z`).getTime() - IST_OFFSET_MS)
 
     const isBooked = existingBookings.some((b) => {
       if (!b.scheduledStart || !b.scheduledEnd) return false
@@ -994,7 +1001,14 @@ export async function getAvailableSlots(
       return b.scheduledStart < slotEnd && b.scheduledEnd > slotStart
     })
 
-    slots.push({ start: startStr, end: endStr, available: !isBooked })
+    const isPast = slotStart <= now
+
+    slots.push({
+      start: startStr,
+      end: endStr,
+      available: !isBooked && !isPast,
+      unavailableReason: isBooked ? 'booked' : isPast ? 'past' : undefined,
+    })
 
     h = slotEndH
     m = slotEndM

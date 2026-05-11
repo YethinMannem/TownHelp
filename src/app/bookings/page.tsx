@@ -288,41 +288,49 @@ export default async function BookingsPage() {
         {!hasBookings ? (
           <EmptyBookings />
         ) : (
-          <BookingTabs
-            requesterCount={requester.active.length}
-            providerCount={provider.active.length}
-            requesterPastCount={requester.past.length}
-            providerPastCount={provider.past.length}
-            providerPendingCount={providerPendingCount}
-            requesterContent={
-              requester.active.length === 0 ? (
-                <p className="text-on-surface-variant font-body text-sm text-center py-8">
-                  No active bookings.
-                </p>
-              ) : (
-                <BookingGrid bookings={requester.active} variant="requester" />
-              )
-            }
-            providerContent={
-              sortedProviderActive.length === 0 ? (
-                <p className="text-on-surface-variant font-body text-sm text-center py-8">
-                  No active bookings received.
-                </p>
-              ) : (
-                <BookingGrid bookings={sortedProviderActive} variant="provider" />
-              )
-            }
-            requesterPastContent={
-              requester.past.length > 0 ? (
-                <BookingGrid bookings={requester.past} variant="requester" />
-              ) : undefined
-            }
-            providerPastContent={
-              provider.past.length > 0 ? (
-                <BookingGrid bookings={provider.past} variant="provider" />
-              ) : undefined
-            }
-          />
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest px-4 py-3 shadow-sm">
+              <p className="font-headline text-lg font-bold text-on-surface">Bookings</p>
+              <p className="mt-0.5 text-sm text-on-surface-variant font-body">
+                Track requests, provider jobs, payments, and reviews in one place.
+              </p>
+            </div>
+            <BookingTabs
+              requesterCount={requester.active.length}
+              providerCount={provider.active.length}
+              requesterPastCount={requester.past.length}
+              providerPastCount={provider.past.length}
+              providerPendingCount={providerPendingCount}
+              requesterContent={
+                requester.active.length === 0 ? (
+                  <p className="text-on-surface-variant font-body text-sm text-center py-8">
+                    No active bookings.
+                  </p>
+                ) : (
+                  <BookingGrid bookings={requester.active} variant="requester" />
+                )
+              }
+              providerContent={
+                sortedProviderActive.length === 0 ? (
+                  <p className="text-on-surface-variant font-body text-sm text-center py-8">
+                    No active bookings received.
+                  </p>
+                ) : (
+                  <BookingGrid bookings={sortedProviderActive} variant="provider" />
+                )
+              }
+              requesterPastContent={
+                requester.past.length > 0 ? (
+                  <BookingGrid bookings={requester.past} variant="requester" />
+                ) : undefined
+              }
+              providerPastContent={
+                provider.past.length > 0 ? (
+                  <BookingGrid bookings={provider.past} variant="provider" />
+                ) : undefined
+              }
+            />
+          </div>
         )}
       </div>
     </div>

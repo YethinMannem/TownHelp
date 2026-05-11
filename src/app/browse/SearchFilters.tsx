@@ -10,6 +10,7 @@ interface SearchFiltersProps {
   currentSearch: string | undefined
   currentAvailableToday?: boolean
   currentNearMe?: boolean
+  currentLocationLabel?: string
 }
 
 export default function SearchFilters({
@@ -17,6 +18,7 @@ export default function SearchFilters({
   currentSearch,
   currentAvailableToday,
   currentNearMe,
+  currentLocationLabel = '',
 }: SearchFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -30,9 +32,17 @@ export default function SearchFilters({
     if (search) params.set('search', search)
     const avail = overrides.availableToday ?? (availableToday ? '1' : '')
     if (avail) params.set('availableToday', avail)
-    if (overrides.lat) params.set('lat', overrides.lat)
-    if (overrides.lng) params.set('lng', overrides.lng)
-    if (overrides.nearMe) params.set('nearMe', '1')
+    const lat = overrides.lat ?? searchParams.get('lat') ?? undefined
+    const lng = overrides.lng ?? searchParams.get('lng') ?? undefined
+    const nearMe = overrides.nearMe ?? searchParams.get('nearMe') ?? undefined
+    const locationLabel = overrides.locationLabel ?? searchParams.get('locationLabel') ?? undefined
+    // Preserve current sort unless overridden; drop 'nearest' if location is being cleared
+    const sort = overrides.sort ?? (nearMe ? searchParams.get('sort') ?? undefined : undefined)
+    if (lat) params.set('lat', lat)
+    if (lng) params.set('lng', lng)
+    if (nearMe) params.set('nearMe', '1')
+    if (locationLabel && nearMe) params.set('locationLabel', locationLabel)
+    if (sort) params.set('sort', sort)
     return params.toString()
   }
 
@@ -48,19 +58,29 @@ export default function SearchFilters({
     router.push(`/browse?${params.toString()}`)
   }
 
+  function handleLocationClear(): void {
+    const params = new URLSearchParams()
+    if (categorySlug) params.set('category', categorySlug)
+    const search = searchRef.current?.value.trim()
+    if (search) params.set('search', search)
+    if (availableToday) params.set('availableToday', '1')
+    // Carry forward any non-distance sort that was active
+    const currentSort = searchParams.get('sort')
+    if (currentSort && currentSort !== 'nearest') params.set('sort', currentSort)
+    router.push(`/browse?${params.toString()}`)
+  }
+
   function handleLocationSelect(loc: SelectedLocation): void {
     router.push(`/browse?${buildParams({
       lat: loc.lat.toFixed(6),
       lng: loc.lng.toFixed(6),
       nearMe: '1',
+      locationLabel: loc.label,
+      sort: 'nearest',
     })}`)
   }
 
   const hasActiveFilters = currentSearch || currentAvailableToday || currentNearMe
-
-  // Derive the current location label from URL (for display when page reloads)
-  // SearchFilters doesn't receive it directly but we can show "Near you" in LocationSearch
-  const currentLocationLabel = currentNearMe ? 'Near you' : ''
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2.5">
@@ -77,10 +97,11 @@ export default function SearchFilters({
         />
       </div>
 
-      {/* Location search — Ola-style */}
+      {/* Location search — Uber-style */}
       <LocationSearch
         placeholder="Where do you need service?"
         onSelect={handleLocationSelect}
+        onClear={handleLocationClear}
         initialValue={currentLocationLabel}
       />
 
@@ -111,19 +132,7 @@ export default function SearchFilters({
           onClick={() => {
             const next = !availableToday
             setAvailableToday(next)
-            const params = new URLSearchParams()
-            if (categorySlug) params.set('category', categorySlug)
-            const search = searchRef.current?.value.trim()
-            if (search) params.set('search', search)
-            if (next) params.set('availableToday', '1')
-            if (currentNearMe) {
-              const existingLat = searchParams.get('lat')
-              const existingLng = searchParams.get('lng')
-              if (existingLat) params.set('lat', existingLat)
-              if (existingLng) params.set('lng', existingLng)
-              params.set('nearMe', '1')
-            }
-            router.push(`/browse?${params.toString()}`)
+            router.push(`/browse?${buildParams({ availableToday: next ? '1' : '' })}`)
           }}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold font-body transition-colors ${
             availableToday

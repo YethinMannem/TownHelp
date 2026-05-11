@@ -23,7 +23,7 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        'fixed top-0 left-0 right-0 lg:left-60 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/20 px-4 lg:px-6 h-14 flex items-center justify-between gap-3',
+        'fixed top-0 left-0 right-0 lg:left-60 z-40 bg-surface-container-lowest/92 backdrop-blur-md border-b border-outline-variant/20 px-4 lg:px-6 h-14 flex items-center justify-between gap-3 shadow-[0_8px_24px_rgba(0,0,0,0.03)]',
         className
       )}
       {...props}
@@ -31,7 +31,7 @@ export function PageHeader({
       {showLocation ? (
         <Link
           href="/profile"
-          className="flex items-center gap-2 min-w-0 rounded-full hover:bg-surface-container transition-colors px-1 py-1 -mx-1"
+          className="flex items-center gap-2 min-w-0 rounded-full hover:bg-surface-container transition-colors px-1 py-1 -mx-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           aria-label="Set your location"
         >
           <div className="w-7 h-7 rounded-full bg-primary-fixed flex items-center justify-center shrink-0">
@@ -59,7 +59,7 @@ export function PageHeader({
         <Link
           href="/notifications"
           aria-label="Notifications"
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors relative"
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <Bell className="w-5 h-5 text-on-surface-variant" />
           {unreadNotificationsCount > 0 && (

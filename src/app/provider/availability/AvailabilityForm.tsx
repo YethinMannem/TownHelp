@@ -42,6 +42,8 @@ export default function AvailabilityForm({
   const [slots, setSlots] = useState<SlotData[]>(weeklySlots)
   const [weeklySaved, setWeeklySaved] = useState(false)
   const [weeklyError, setWeeklyError] = useState('')
+  const [hoursError, setHoursError] = useState('')
+  const [hoursSaved, setHoursSaved] = useState(false)
 
   function handleToggle() {
     startToggle(async () => { await toggleAvailability() })
@@ -49,10 +51,23 @@ export default function AvailabilityForm({
 
   function handleHoursSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setHoursError('')
+    setHoursSaved(false)
     const form = event.currentTarget
     const from = (form.elements.namedItem('availableFrom') as HTMLInputElement).value
     const to = (form.elements.namedItem('availableTo') as HTMLInputElement).value
-    startHours(async () => { await updateAvailabilityHours(from, to) })
+    if (from >= to) {
+      setHoursError('Start time must be before end time.')
+      return
+    }
+    startHours(async () => {
+      try {
+        await updateAvailabilityHours(from, to)
+        setHoursSaved(true)
+      } catch (error) {
+        setHoursError(error instanceof Error ? error.message : 'Failed to save profile hours.')
+      }
+    })
   }
 
   function updateSlot(dayOfWeek: number, field: keyof SlotData, value: string | boolean) {
@@ -161,6 +176,14 @@ export default function AvailabilityForm({
             {hoursPending ? '...' : 'Save'}
           </Button>
         </div>
+        {hoursError && (
+          <p className="mt-2 text-xs font-body text-error">{hoursError}</p>
+        )}
+        {hoursSaved && !hoursError && (
+          <p className="mt-2 flex items-center gap-1 text-xs font-body font-medium text-primary">
+            <Check className="w-3.5 h-3.5" /> Saved
+          </p>
+        )}
       </form>
 
       {/* Weekly schedule — the main section */}

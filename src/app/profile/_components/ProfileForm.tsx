@@ -1,37 +1,62 @@
 'use client'
 
 import { useTransition, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { updateProfile } from '@/app/actions/user'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { User, MapPin, CheckCircle } from 'lucide-react'
 import SignOutButton from '@/components/SignOutButton'
-import LocationInput from '@/components/LocationInput'
+import LocationSearch, { type SelectedLocation } from '@/components/ui/LocationSearch'
 
 interface ProfileFormProps {
   fullName: string
   locationLabel: string
-  areas: string[]
+  locationLat?: number | null
+  locationLng?: number | null
 }
 
 export default function ProfileForm({
   fullName,
   locationLabel,
+  locationLat,
+  locationLng,
 }: ProfileFormProps) {
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(() =>
+    locationLabel
+      ? {
+          label: locationLabel,
+          lat: locationLat ?? Number.NaN,
+          lng: locationLng ?? Number.NaN,
+        }
+      : null
+  )
+  const [locationTouched, setLocationTouched] = useState(false)
+  const router = useRouter()
   const { toast } = useToast()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>): void {
     e.preventDefault()
     setSaved(false)
     setError(null)
+
+    if (locationTouched && !selectedLocation) {
+      const message = 'Please select an address from the suggestions.'
+      setError(message)
+      toast(message, 'error')
+      return
+    }
+
     const formData = new FormData(e.currentTarget)
     startTransition(async () => {
       const result = await updateProfile(formData)
       if (result.success) {
         setSaved(true)
+        setLocationTouched(false)
+        router.refresh()
         toast('Profile saved!', 'success')
       } else {
         setError(result.error ?? 'Something went wrong.')
@@ -69,13 +94,35 @@ export default function ProfileForm({
             <MapPin className="w-3.5 h-3.5" />
             Neighborhood / area
           </label>
-          <LocationInput
-            name="locationLabel"
-            defaultValue={locationLabel}
-            placeholder="e.g. Madhapur, Kondapur…"
+          <LocationSearch
+            placeholder="Search and select your address"
+            initialValue={locationLabel}
+            onSelect={(loc) => {
+              setSelectedLocation(loc)
+              setLocationTouched(true)
+            }}
+            onInputChange={() => {
+              setSelectedLocation(null)
+              setLocationTouched(true)
+            }}
+            onClear={() => {
+              setSelectedLocation(null)
+              setLocationTouched(true)
+            }}
+          />
+          <input type="hidden" name="locationLabel" value={selectedLocation?.label ?? ''} />
+          <input
+            type="hidden"
+            name="locationLat"
+            value={Number.isFinite(selectedLocation?.lat) ? String(selectedLocation?.lat) : ''}
+          />
+          <input
+            type="hidden"
+            name="locationLng"
+            value={Number.isFinite(selectedLocation?.lng) ? String(selectedLocation?.lng) : ''}
           />
           <p className="text-xs text-on-surface-variant font-body">
-            Shown in your home screen header. Helps match you with local providers.
+            Pick one of the suggestions so we can show providers near your address.
           </p>
         </div>
 

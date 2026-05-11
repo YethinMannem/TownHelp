@@ -1,6 +1,7 @@
 import { getAdminProviders } from '@/app/actions/admin'
 import type { AdminProviderItem } from '@/app/actions/admin'
 import VerifyButton from './_components/VerifyButton'
+import { connection } from 'next/server'
 
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat('en-IN', {
@@ -81,6 +82,8 @@ function ProviderCard({ provider }: { provider: AdminProviderItem }) {
 }
 
 export default async function AdminProvidersPage() {
+  await connection()
+
   const providers = await getAdminProviders()
 
   const pending = providers.filter((p) => !p.isVerified)

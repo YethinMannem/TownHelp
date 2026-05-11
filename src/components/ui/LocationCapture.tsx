@@ -10,6 +10,8 @@ interface LocationCaptureProps {
   initialLat?: number | null
   initialLng?: number | null
   initialLabel?: string
+  initialCity?: string
+  initialState?: string
   initialRadius?: number
 }
 
@@ -19,17 +21,23 @@ export default function LocationCapture({
   initialLat = null,
   initialLng = null,
   initialLabel = '',
+  initialCity = '',
+  initialState = '',
   initialRadius = 5,
 }: LocationCaptureProps) {
   const [lat, setLat] = useState<number | null>(initialLat)
   const [lng, setLng] = useState<number | null>(initialLng)
   const [locationLabel, setLocationLabel] = useState(initialLabel)
+  const [city, setCity] = useState(initialCity)
+  const [state, setState] = useState(initialState)
   const [radiusKm, setRadiusKm] = useState(initialRadius)
 
   function handleSelect(loc: SelectedLocation): void {
     setLat(loc.lat)
     setLng(loc.lng)
     setLocationLabel(loc.label)
+    setCity(loc.city ?? '')
+    setState(loc.state ?? '')
   }
 
   const hasLocation = lat !== null && lng !== null
@@ -85,6 +93,8 @@ export default function LocationCapture({
       {lat !== null && <input type="hidden" name="lat" value={lat} />}
       {lng !== null && <input type="hidden" name="lng" value={lng} />}
       <input type="hidden" name="locationLabel" value={locationLabel} />
+      <input type="hidden" name="locationCity" value={city} />
+      <input type="hidden" name="locationState" value={state} />
       <input type="hidden" name="radiusKm" value={radiusKm} />
     </div>
   )

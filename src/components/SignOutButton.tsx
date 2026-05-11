@@ -18,6 +18,10 @@ export default function SignOutButton({
 
   async function handleSignOut() {
     await authService.signOut()
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration()
+      registration?.active?.postMessage({ type: 'CLEAR_APP_CACHES' })
+    }
     router.push('/login')
     router.refresh()
   }

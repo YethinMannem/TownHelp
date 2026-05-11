@@ -23,6 +23,11 @@ export default function Pagination({
     if (searchParams.search) params.set('search', searchParams.search)
     if (searchParams.area) params.set('area', searchParams.area)
     if (searchParams.sort) params.set('sort', searchParams.sort)
+    if (searchParams.availableToday) params.set('availableToday', searchParams.availableToday)
+    if (searchParams.lat) params.set('lat', searchParams.lat)
+    if (searchParams.lng) params.set('lng', searchParams.lng)
+    if (searchParams.nearMe) params.set('nearMe', '1')
+    if (searchParams.locationLabel && searchParams.nearMe) params.set('locationLabel', searchParams.locationLabel)
     if (page > 1) params.set('page', String(page))
     return `/browse?${params.toString()}`
   }

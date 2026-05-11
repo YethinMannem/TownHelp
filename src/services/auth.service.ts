@@ -1,6 +1,10 @@
 import { createClient } from '@/lib/supabase/client'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
+function getSiteUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+}
+
 export const authService = {
   /**
    * Sign up with email and password.
@@ -14,17 +18,12 @@ export const authService = {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${getSiteUrl()}/auth/callback`,
       },
     })
     return { data, error }
   },
 
-  /**
-   * Sign in with email and password.
-   * Only works after email is verified.
-   * Returns session directly — no redirect needed.
-   */
   async signIn(email: string, password: string) {
     const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -34,30 +33,22 @@ export const authService = {
     return { data, error }
   },
 
-  /**
-   * Resend the verification email for an unverified account.
-   * Uses Supabase OTP resend with email type.
-   */
   async resendVerificationEmail(email: string) {
     const supabase = createClient()
     const { data, error } = await supabase.auth.resend({
       type: 'signup',
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${getSiteUrl()}/auth/callback`,
       },
     })
     return { data, error }
   },
 
-  /**
-   * Send a password reset email.
-   * User clicks the link → redirected to /auth/callback?next=/login/reset-password.
-   */
   async resetPassword(email: string) {
     const supabase = createClient()
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/login/reset-password`,
+      redirectTo: `${getSiteUrl()}/auth/callback?next=/login/reset-password`,
     })
     return { data, error }
   },

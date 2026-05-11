@@ -62,7 +62,7 @@ export interface ProviderListItem {
   distanceKm?: number
 }
 
-export type ProviderSortOption = 'rating' | 'price_low' | 'price_high' | 'experience'
+export type ProviderSortOption = 'rating' | 'price_low' | 'price_high' | 'experience' | 'nearest'
 
 export interface ProviderListResult {
   providers: ProviderListItem[]

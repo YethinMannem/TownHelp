@@ -89,14 +89,10 @@ export default function BookButton({
 
   useEffect(() => {
     if (!selectedDate) {
-      setSlots([])
-      setSelectedSlot(null)
       return
     }
 
     let cancelled = false
-    setSlotsLoading(true)
-    setSelectedSlot(null)
 
     getAvailableSlots(providerId, selectedDate).then((result) => {
       if (cancelled) return
@@ -383,7 +379,12 @@ export default function BookButton({
                       <button
                         key={ds}
                         type="button"
-                        onClick={() => setSelectedDate(isSelected ? null : ds)}
+                        onClick={() => {
+                          setSelectedSlot(null)
+                          setSlots([])
+                          setSlotsLoading(!isSelected)
+                          setSelectedDate(isSelected ? null : ds)
+                        }}
                         className={`flex-1 flex flex-col items-center py-2 rounded-2xl text-center transition-all ${
                           isSelected
                             ? 'bg-primary text-on-primary shadow-md scale-105'
@@ -466,7 +467,11 @@ export default function BookButton({
                           <span className={`block text-[9px] font-body mt-0.5 ${
                             !slot.available ? 'opacity-60' : isSelected ? 'opacity-70' : 'opacity-50'
                           }`}>
-                            {slot.available ? dur : 'Booked'}
+                            {slot.available
+                              ? dur
+                              : slot.unavailableReason === 'past'
+                                ? 'Past'
+                                : 'Booked'}
                           </span>
                         </button>
                       )

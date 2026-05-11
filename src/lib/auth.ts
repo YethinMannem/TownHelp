@@ -12,28 +12,51 @@ export interface ViewerContext {
   user: AuthUser | null
   providerProfileId: string | null
   locationLabel: string | null
+  locationLat: number | null
+  locationLng: number | null
 }
 
-function extractLocationLabel(
+interface ExtractedLocation {
+  label: string | null
+  lat: number | null
+  lng: number | null
+}
+
+function readCoordinate(value: unknown, min: number, max: number): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  if (value < min || value > max) return null
+  return value
+}
+
+function extractLocation(
   metadata: unknown,
   fallbackArea?: { areaName: string; city: string } | null
-): string | null {
+): ExtractedLocation {
   if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
-    const raw = (metadata as Record<string, unknown>).locationLabel
+    const meta = metadata as Record<string, unknown>
+    const raw = meta.locationLabel
     if (typeof raw === 'string' && raw.trim()) {
-      return raw.trim()
+      return {
+        label: raw.trim(),
+        lat: readCoordinate(meta.locationLat, -90, 90),
+        lng: readCoordinate(meta.locationLng, -180, 180),
+      }
     }
   }
 
   if (fallbackArea?.areaName?.trim() && fallbackArea.city?.trim()) {
-    return `${fallbackArea.areaName.trim()}, ${fallbackArea.city.trim()}`
+    return {
+      label: `${fallbackArea.areaName.trim()}, ${fallbackArea.city.trim()}`,
+      lat: null,
+      lng: null,
+    }
   }
 
   if (fallbackArea?.city?.trim()) {
-    return fallbackArea.city.trim()
+    return { label: fallbackArea.city.trim(), lat: null, lng: null }
   }
 
-  return null
+  return { label: null, lat: null, lng: null }
 }
 
 /**
@@ -61,7 +84,7 @@ export const getViewerContext = cache(async (): Promise<ViewerContext> => {
   const user = await getAuthUser()
 
   if (!user) {
-    return { user: null, providerProfileId: null, locationLabel: null }
+    return { user: null, providerProfileId: null, locationLabel: null, locationLat: null, locationLng: null }
   }
 
   const [dbUser, providerProfile] = await Promise.all([
@@ -83,11 +106,14 @@ export const getViewerContext = cache(async (): Promise<ViewerContext> => {
   ])
 
   const primaryArea = providerProfile?.serviceAreas[0] ?? null
+  const location = extractLocation(dbUser?.metadata, primaryArea)
 
   return {
     user,
     providerProfileId: providerProfile?.id ?? null,
-    locationLabel: extractLocationLabel(dbUser?.metadata, primaryArea),
+    locationLabel: location.label,
+    locationLat: location.lat,
+    locationLng: location.lng,
   }
 })
 

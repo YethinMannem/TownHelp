@@ -36,7 +36,9 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
   const bio = formData.get('bio') as string
   const lat = parseFloat(formData.get('lat') as string)
   const lng = parseFloat(formData.get('lng') as string)
-  const locationLabel = ((formData.get('locationLabel') as string) ?? '').trim() || 'Hyderabad'
+  const locationLabel = ((formData.get('locationLabel') as string) ?? '').trim()
+  const locationCity = ((formData.get('locationCity') as string) ?? '').trim()
+  const locationState = ((formData.get('locationState') as string) ?? '').trim()
   const radiusKm = parseInt(formData.get('radiusKm') as string, 10) || 5
 
   if (!displayName?.trim() || isNaN(baseRate) || baseRate <= 0) {
@@ -71,9 +73,9 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
       data: [
         {
           providerId: profile.id,
-          areaName: locationLabel,
-          city: 'Hyderabad',
-          state: 'Telangana',
+          areaName: locationLabel || locationCity || 'My Area',
+          city: locationCity || undefined,
+          state: locationState || undefined,
           latitude: lat,
           longitude: lng,
           radiusKm: radiusKm,
@@ -86,9 +88,11 @@ export async function createProviderProfile(formData: FormData): Promise<void> {
       where: { id: authUser.id },
       data: {
         metadata: {
-          locationLabel: locationLabel,
-          city: 'Hyderabad',
-          state: 'Telangana',
+          locationLabel,
+          city: locationCity || undefined,
+          state: locationState || undefined,
+          locationLat: lat,
+          locationLng: lng,
         },
       },
     })
@@ -155,7 +159,9 @@ export async function updateProviderProfile(
     const isAvailable = formData.get('isAvailable') === 'true'
     const rawLat = formData.get('lat') as string
     const rawLng = formData.get('lng') as string
-    const locationLabel = ((formData.get('locationLabel') as string) ?? '').trim() || 'Hyderabad'
+    const locationLabel = ((formData.get('locationLabel') as string) ?? '').trim()
+    const locationCity = ((formData.get('locationCity') as string) ?? '').trim()
+    const locationState = ((formData.get('locationState') as string) ?? '').trim()
     const radiusKm = parseInt(formData.get('radiusKm') as string, 10) || 5
     const lat = rawLat ? parseFloat(rawLat) : null
     const lng = rawLng ? parseFloat(rawLng) : null
@@ -183,14 +189,27 @@ export async function updateProviderProfile(
         await tx.serviceArea.createMany({
           data: [{
             providerId: profile.id,
-            areaName: locationLabel,
-            city: 'Hyderabad',
-            state: 'Telangana',
+            areaName: locationLabel || locationCity || 'My Area',
+            city: locationCity || undefined,
+            state: locationState || undefined,
             latitude: lat!,
             longitude: lng!,
             radiusKm,
             isPrimary: true,
           }],
+        })
+
+        await tx.user.update({
+          where: { id: authUser.id },
+          data: {
+            metadata: {
+              locationLabel,
+              city: locationCity || undefined,
+              state: locationState || undefined,
+              locationLat: lat,
+              locationLng: lng,
+            },
+          },
         })
       }
     })
@@ -278,8 +297,6 @@ export async function addServiceArea(formData: FormData): Promise<void> {
     data: {
       providerId: profile.id,
       areaName,
-      city: 'Hyderabad',
-      state: 'Telangana',
       isPrimary: false,
     },
   })
@@ -474,6 +491,10 @@ export async function updateAvailabilityHours(
   // Prisma @db.Time() stores only the time part; using 1970-01-01 as the date carrier.
   const fromDate = new Date(`1970-01-01T${availableFrom}:00.000Z`)
   const toDate = new Date(`1970-01-01T${availableTo}:00.000Z`)
+
+  if (fromDate >= toDate) {
+    throw new Error('Start time must be before end time.')
+  }
 
   await prisma.providerProfile.update({
     where: { id: profile.id },

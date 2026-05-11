@@ -18,12 +18,12 @@ export function CategoryCard({ slug, label, Icon, colorClasses, className }: Cat
     >
       <div
         className={cn(
-          'flex flex-col items-center justify-center gap-2 py-4 px-2 rounded-2xl transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]',
+          'flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl px-2 py-4 text-center shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98]',
           colorClasses,
           className
         )}
       >
-        <div className="w-10 h-10 rounded-xl bg-white/30 flex items-center justify-center">
+        <div className="w-11 h-11 rounded-xl bg-white/35 flex items-center justify-center">
           <Icon className="w-5 h-5" strokeWidth={2} />
         </div>
         <span className="text-xs font-semibold font-body text-center leading-tight">{label}</span>

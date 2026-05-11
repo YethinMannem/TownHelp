@@ -1,5 +1,50 @@
 @import "tailwindcss";
 
+/* ─── PWA / iOS baseline ─────────────────────────────────────────────────── */
+
+/* Remove the grey tap-flash on iOS Safari */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent iOS from auto-adjusting font sizes in landscape */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  height: 100%;
+  background: #fbf9f7;
+}
+
+/* Prevent rubber-band overscroll on the app shell — makes it feel native */
+body {
+  min-height: 100%;
+  overscroll-behavior-y: none;
+  background: #fbf9f7;
+  color: #1b1c1b;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Safe-area padding for home-indicator / notch when running as standalone PWA */
+@media (display-mode: standalone) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 @theme {
   /* ── Primary (Forest Green) ── */
   --color-primary: #4e644f;
@@ -84,4 +129,44 @@
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+.app-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--color-surface);
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 1024px) {
+  .app-page {
+    padding-left: 15rem;
+    padding-bottom: 0;
+  }
+}
+
+.app-content {
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding: 4.5rem 1rem 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .app-content {
+    padding-inline: 2rem;
+  }
+}
+
+.surface-card {
+  background: var(--color-surface-container-lowest);
+  border: 1px solid rgb(194 201 190 / 0.2);
+  border-radius: 1rem;
+}
+
+.section-label {
+  font: 700 0.75rem/1 var(--font-body);
+  color: var(--color-on-surface-variant);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }

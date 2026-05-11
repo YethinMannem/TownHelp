@@ -69,12 +69,12 @@ export function ProviderCard({
     >
       <div
         className={cn(
-          'w-full min-w-0 bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md',
+          'w-full min-w-0 bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md',
           className
         )}
       >
         {/* Avatar area */}
-        <div className="relative h-28">
+        <div className="relative h-30">
           <div
             className={cn(
               'w-full h-full flex items-center justify-center text-2xl font-bold font-headline',
@@ -102,7 +102,7 @@ export function ProviderCard({
         </div>
 
         {/* Info */}
-        <div className="p-3 space-y-0.5 min-w-0">
+        <div className="p-3.5 space-y-1 min-w-0">
           <p className="font-semibold text-sm text-on-surface font-body truncate">{name}</p>
           <p className="text-[11px] text-on-surface-variant font-body line-clamp-2 break-words">{role}</p>
           {(completedBookings ?? 0) > 0 && (
@@ -117,7 +117,7 @@ export function ProviderCard({
               {formatDistance(distanceKm)}
             </p>
           )}
-          <p className="text-sm font-bold text-primary font-body pt-1">
+          <p className="text-sm font-bold text-primary font-body pt-1.5">
             ₹{pricePerHour}
             <span className="text-[11px] text-on-surface-variant font-normal">{rateLabel(rateType)}</span>
           </p>

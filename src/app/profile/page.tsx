@@ -1,6 +1,5 @@
 import { requireAuthUser, getViewerContext } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getServiceAreas } from '@/app/actions/booking'
 import { LayoutGrid, Briefcase, HelpCircle } from 'lucide-react'
 import Link from 'next/link'
 import ProfileForm from './_components/ProfileForm'
@@ -14,7 +13,7 @@ export const metadata: Metadata = {
 export default async function ProfilePage() {
   const authUser = await requireAuthUser()
 
-  const [dbUser, areas, viewer] = await Promise.all([
+  const [dbUser, viewer] = await Promise.all([
     prisma.user.findUnique({
       where: { id: authUser.id, deletedAt: null },
       select: {
@@ -25,7 +24,6 @@ export default async function ProfilePage() {
         createdAt: true,
       },
     }),
-    getServiceAreas(),
     getViewerContext(),
   ])
 
@@ -42,6 +40,14 @@ export default async function ProfilePage() {
 
   const locationLabel =
     typeof meta.locationLabel === 'string' ? meta.locationLabel : ''
+  const locationLat =
+    typeof meta.locationLat === 'number' && Number.isFinite(meta.locationLat)
+      ? meta.locationLat
+      : null
+  const locationLng =
+    typeof meta.locationLng === 'number' && Number.isFinite(meta.locationLng)
+      ? meta.locationLng
+      : null
 
   const memberSince = new Intl.DateTimeFormat('en-IN', {
     month: 'long',
@@ -73,7 +79,8 @@ export default async function ProfilePage() {
         <ProfileForm
           fullName={dbUser.fullName}
           locationLabel={locationLabel}
-          areas={areas}
+          locationLat={locationLat}
+          locationLng={locationLng}
         />
 
         {/* Provider section */}

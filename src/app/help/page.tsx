@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, LifeBuoy } from 'lucide-react'
 import Link from 'next/link'
 import FaqAccordion from './_components/FaqAccordion'
 import type { Metadata } from 'next'
@@ -22,7 +22,21 @@ export default function HelpPage() {
         <h1 className="font-headline text-base font-bold text-on-surface">Help &amp; Support</h1>
       </header>
 
-      <div className="pt-14 px-4 lg:px-8 max-w-xl mx-auto mt-6 space-y-5">
+      <div className="pt-14 px-4 lg:px-8 max-w-2xl mx-auto mt-5 space-y-5">
+        <section className="rounded-3xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-primary-fixed flex items-center justify-center shrink-0">
+              <LifeBuoy className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-headline text-xl font-bold text-on-surface">How can we help?</h2>
+              <p className="mt-1 text-sm text-on-surface-variant font-body leading-relaxed">
+                Find answers about bookings, payments, cancellations, and provider support.
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* FAQ Section */}
         <div>
           <p className="text-xs font-body font-semibold text-on-surface-variant uppercase tracking-wide px-1 mb-2">

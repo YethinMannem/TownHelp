@@ -56,12 +56,12 @@ export default async function ChatPage() {
             </Link>
           </div>
         ) : (
-          <ul className="mt-3 divide-y divide-outline-variant/15">
+          <ul className="mt-4 overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm divide-y divide-outline-variant/15">
             {conversations.map((conversation: ConversationItem) => (
               <li key={conversation.id}>
                 <Link
                   href={`/chat/${conversation.id}`}
-                  className="flex items-center gap-3 py-3.5 hover:bg-surface-container/30 -mx-4 px-4 rounded-xl transition-colors"
+                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-container/40 transition-colors"
                 >
                   {/* Avatar */}
                   <div
