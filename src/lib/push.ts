@@ -1,19 +1,22 @@
 import webpush from 'web-push'
 import { prisma } from '@/lib/prisma'
 
-webpush.setVapidDetails(
-  `mailto:${process.env.VAPID_CONTACT_EMAIL}`,
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-)
-
 export interface PushPayload {
   title: string
   body: string
   url?: string
 }
 
+function initWebPush(): void {
+  webpush.setVapidDetails(
+    `mailto:${process.env.VAPID_CONTACT_EMAIL}`,
+    process.env.VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!,
+  )
+}
+
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
+  initWebPush()
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { metadata: true },
