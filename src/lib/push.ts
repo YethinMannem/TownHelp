@@ -1,5 +1,50 @@
 import webpush from 'web-push'
 import { prisma } from '@/lib/prisma'
+import type { PushSubscription } from 'web-push'
+
+let vapidReady = false
+let vapidChecked = false
+
+function getVapidContact(): string {
+  const contact = process.env.VAPID_CONTACT_EMAIL
+  if (!contact) return 'mailto:support@townhelp.app'
+  return contact.startsWith('mailto:') ? contact : `mailto:${contact}`
+}
+
+function hasUsableVapidConfig(): boolean {
+  const publicKey = process.env.VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  return Boolean(
+    publicKey &&
+    privateKey &&
+    /^[A-Za-z0-9_-]+$/.test(publicKey) &&
+    /^[A-Za-z0-9_-]+$/.test(privateKey)
+  )
+}
+
+function ensureVapidDetails(): boolean {
+  if (vapidChecked) return vapidReady
+  vapidChecked = true
+
+  if (!hasUsableVapidConfig()) {
+    console.warn('[push] VAPID keys are missing or invalid; push delivery is disabled.')
+    return false
+  }
+
+  try {
+    webpush.setVapidDetails(
+      getVapidContact(),
+      process.env.VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!,
+    )
+    vapidReady = true
+  } catch (error) {
+    console.warn('[push] Failed to configure VAPID details; push delivery is disabled.', error)
+    vapidReady = false
+  }
+
+  return vapidReady
+}
 
 export interface PushPayload {
   title: string
@@ -7,16 +52,9 @@ export interface PushPayload {
   url?: string
 }
 
-function initWebPush(): void {
-  webpush.setVapidDetails(
-    `mailto:${process.env.VAPID_CONTACT_EMAIL}`,
-    process.env.VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!,
-  )
-}
-
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
-  initWebPush()
+  if (!ensureVapidDetails()) return
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { metadata: true },
@@ -35,7 +73,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
 
   try {
     await webpush.sendNotification(
-      subscription as webpush.PushSubscription,
+      subscription as PushSubscription,
       JSON.stringify(payload),
     )
   } catch (error: unknown) {
